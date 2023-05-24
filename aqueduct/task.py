@@ -1,6 +1,4 @@
-import functools
-
-from typing import Dict, Iterable, Tuple, Union
+from typing import Union
 
 from .artifact import Artifact
 

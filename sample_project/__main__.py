@@ -30,14 +30,13 @@ def fetch_station(name, begin, end):
 
 
 class FetchStations(Task):
-    def __init__(self, begin, end):
+    def __init__(self, begin, end, station_list):
         self.begin = begin
         self.end = end
+        self.station_list = station_list
 
     def requirements(self):
-        return [
-            fetch_station(x, self.begin, self.end) for x in ["CYUL", "CYVR", "CYQB"]
-        ]
+        return [fetch_station(x, self.begin, self.end) for x in self.station_list]
 
     def run(self, stations):
         return pd.concat(stations)
@@ -49,7 +48,8 @@ class FetchStations(Task):
 if __name__ == "__main__":
     logging.basicConfig(level="INFO")
 
-    client = dask.distributed.Client()
+    cluster = dask.distributed.LocalCluster(n_workers=2, threads_per_worker=3)
+    client = dask.distributed.Client(cluster)
     print(client.dashboard_link)
 
     backend = DaskBackend(client)
@@ -61,8 +61,13 @@ if __name__ == "__main__":
     response = backend.run(a)
     print(response)
 
-    task = FetchStations(pd.to_datetime("2021-01-01"), pd.to_datetime("2021-02-01"))
-    response = backend.run(task())
-    print(response)
+    station_df = pd.read_csv("robust2023_stations.csv")
 
+    task = FetchStations(
+        pd.to_datetime("2021-01-01"),
+        pd.to_datetime("2021-02-01"),
+        station_list=station_df["station"],
+    )
+
+    response = backend.run(task())
     client.close()

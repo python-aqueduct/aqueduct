@@ -18,7 +18,7 @@ class DaskBackend(Backend):
             raise ValueError("Backend can only run Binding objects.")
 
         graph = create_dask_graph(binding)
-        return graph.compute(scheduler="single-threaded")
+        return graph.compute()
 
 
 def binding_to_graph(input):
