@@ -1,7 +1,3 @@
-"""A Backend is the computing resource on which a collection of `Task` are computed.
-
-So far, only the :class:`DaskBackend` is available."""
-
 import abc
 
 from typing import TypeVar
@@ -14,4 +10,5 @@ T = TypeVar("T")
 class Backend(abc.ABC):
     @abc.abstractmethod
     def run(self, task: Binding[T]) -> T:
+        """Execute a :class:`Binding` using its arguments."""
         raise NotImplemented("Backend must implement run.")

@@ -15,5 +15,11 @@ def execute_binding(binding: Binding[T]) -> T:
 
 
 class ImmediateBackend(Backend):
+    """Simple Backend that executes the :class:`Binding` immediately, in the current
+    process.
+
+    No parallelism is involved. Useful for debugging purposes. For any form of
+    parallelism, the :class:`DaskBackend` is probably more appropriate."""
+
     def run(self, binding: Binding[T]) -> T:
         return map_binding_tree(binding, execute_binding)

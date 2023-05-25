@@ -9,6 +9,11 @@ T = TypeVar("T")
 
 
 class DaskBackend(Backend):
+    """Execute :class:`Task` on a Dask cluster.
+
+    Arguments:
+        client (`dask.Client`): Client pointing to the desired Dask cluster."""
+
     def __init__(self, client: Client):
         self.client = DaskClientProxy(client)
 
