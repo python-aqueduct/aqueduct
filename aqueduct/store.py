@@ -1,3 +1,4 @@
+import datetime
 import os
 import pathlib
 
@@ -24,6 +25,9 @@ class LocalFilesystemStore(Store):
 
     def exists(self, name: str) -> bool:
         return (self.root / name).is_file()
+
+    def last_modified(self, name: str):
+        return datetime.datetime.fromtimestamp((self.root / name).stat().st_mtime)
 
     def get_read_stream(self, name) -> BinaryIO:
         return (self.root / name).open("rb")

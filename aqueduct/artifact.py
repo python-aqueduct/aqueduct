@@ -2,7 +2,7 @@ import logging
 import pandas as pd
 import pickle
 
-from typing import TypeVar
+from typing import Any, Generic, TypeVar
 from typing import BinaryIO
 
 from .store import Store
@@ -12,7 +12,7 @@ _logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-class Artifact:
+class Artifact(Generic[T]):
     def __init__(self, name, store: Store):
         self._name = name
         self.store = store
@@ -44,15 +44,15 @@ class Artifact:
 
 
 class PickleArtifact(Artifact):
-    def load(self, stream: BinaryIO) -> T:
+    def load(self, stream: BinaryIO) -> Any:
         return pickle.load(stream)
 
-    def dump(self, object: T, stream: BinaryIO):
+    def dump(self, object: Any, stream: BinaryIO):
         return pickle.dump(object, stream)
 
 
 class ParquetArtifact(Artifact):
-    def load(self, stream: BinaryIO) -> T:
+    def load(self, stream: BinaryIO) -> pd.DataFrame:
         return pd.read_parquet(stream)
 
     def dump(self, df: pd.DataFrame, stream: BinaryIO):

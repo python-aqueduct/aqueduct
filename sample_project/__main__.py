@@ -3,6 +3,7 @@ import dask.distributed
 import logging
 import numpy as np
 import pandas as pd
+import random
 
 from earthsciencedata.tasks.metar.iem import fetch_one_station
 
@@ -25,6 +26,9 @@ def add(np_array):
 
 @taskdef()
 def fetch_station(name, begin, end):
+    if random.random() < 0.1:
+        raise RuntimeError("Task failed.")
+
     df = pd.DataFrame(fetch_one_station(name, begin, end))
     return df
 
@@ -48,18 +52,18 @@ class FetchStations(Task):
 if __name__ == "__main__":
     logging.basicConfig(level="INFO")
 
-    cluster = dask.distributed.LocalCluster(n_workers=2, threads_per_worker=3)
+    cluster = dask.distributed.LocalCluster(n_workers=4, threads_per_worker=4)
     client = dask.distributed.Client(cluster)
     print(client.dashboard_link)
 
     backend = DaskBackend(client)
 
-    dep = produce_np_array()
+    # dep = produce_np_array()
 
-    print("Before A")
-    a = add()
-    response = backend.run(a)
-    print(response)
+    # print("Before A")
+    # a = add()
+    # response = backend.run(a)
+    # print(response)
 
     station_df = pd.read_csv("robust2023_stations.csv")
 
@@ -69,5 +73,9 @@ if __name__ == "__main__":
         station_list=station_df["station"],
     )
 
-    response = backend.run(task())
+    task_binding = task()
+    response = backend.run(task_binding)
+
+    print(response)
+
     client.close()

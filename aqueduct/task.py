@@ -1,10 +1,14 @@
+from __future__ import annotations
+
 from typing import Union
+
 
 from .artifact import Artifact
 
 
 class Binding:
-    def __init__(self, fn, *args, **kwargs):
+    def __init__(self, task: Task, fn, *args, **kwargs):
+        self.task = task
         self.fn = fn
         self.args = args
         self.kwargs = kwargs
@@ -12,8 +16,8 @@ class Binding:
     def compute(self):
         return self.fn(*self.args, **self.kwargs)
 
-    def __call__(self, *args, **kwargs):
-        return Binding(self.compute, *args, **kwargs)
+    def is_pure(self) -> bool:
+        return self.task.artifact == None
 
 
 RequirementSpec = Union[
@@ -21,7 +25,7 @@ RequirementSpec = Union[
 ]
 
 
-def taskdef(requirements: RequirementSpec = None, artifact: Artifact = None, **kwargs):
+def taskdef(requirements: RequirementSpec = None, artifact: Artifact | None = None):
     def wrapper(fn):
         return WrappedTask(
             fn,
@@ -35,26 +39,33 @@ def taskdef(requirements: RequirementSpec = None, artifact: Artifact = None, **k
 class Task:
     def __call__(self, *args, **kwargs):
         artifact = self.artifact()
-
         if artifact and artifact.exists():
             """Exclude the dependencies from the graph to avoid computing them."""
-            return Binding(artifact.load_from_store)
+            return Binding(self, artifact.load_from_store)
 
         requirements = self.requirements()
 
         if isinstance(requirements, Binding) or isinstance(requirements, list):
-            return Binding(self.run_and_maybe_cache, requirements, *args, **kwargs)
+            return self._create_binding(
+                self.run_and_maybe_cache, requirements, *args, **kwargs
+            )
         elif isinstance(requirements, dict):
-            return Binding(self.run_and_maybe_cache, *args, **requirements, **kwargs)
+            return self._create_binding(
+                self.run_and_maybe_cache, *args, **requirements, **kwargs
+            )
         elif isinstance(requirements, tuple):
-            return Binding(self.run_and_maybe_cache, *requirements, *args, **kwargs)
+            return self._create_binding(
+                self.run_and_maybe_cache, *requirements, *args, **kwargs
+            )
         elif not requirements:
-            return Binding(self.run_and_maybe_cache, *args, **kwargs)
+            return self._create_binding(self.run_and_maybe_cache, *args, **kwargs)
         else:
             raise Exception("Unexpected case when building Binding.")
 
-    @property
-    def artifact(self):
+    def _create_binding(self, fn, *args, **kwargs):
+        return Binding(self, fn, *args, **kwargs)
+
+    def artifact(self) -> Artifact | None:
         return None
 
     def requirements(self) -> RequirementSpec:
@@ -87,21 +98,3 @@ class WrappedTask(Task):
 
     def requirements(self):
         return self._requirements
-
-
-# def normalize_requirements(
-#     requirements: RequirementSpec,
-# ) -> tuple[tuple[Binding], dict[str, Binding]]:
-#     if (
-#         (isinstance(requirements, tuple) or isinstance(requirements, list))
-#         and len(requirements) == 2
-#         and isinstance(requirements[1], dict)
-#         and (isinstance(requirements[0], list) or isinstance(requirements[0], tuple))
-#     ):
-#         return requirements
-#     elif isinstance(requirements, dict):
-#         return (), requirements
-#     elif isinstance(requirements, tuple):
-#         return requirements, {}
-#     else:
-#         return tuple([requirements]), {}
