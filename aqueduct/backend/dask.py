@@ -1,8 +1,9 @@
-from dask.distributed import as_completed, Client, Future
 from typing import Any, TypeVar
 
-from .backend import Backend
+from dask.distributed import Client, Future, as_completed
+
 from ..task import Binding
+from .backend import Backend
 from .util import map_binding_tree
 
 T = TypeVar("T")

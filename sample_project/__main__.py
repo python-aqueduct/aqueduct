@@ -1,16 +1,14 @@
-import dask
-import dask.distributed
 import logging
-import numpy as np
-import pandas as pd
 import random
 
+import dask
+import dask.distributed
+import numpy as np
+import pandas as pd
 from earthsciencedata.tasks.metar.iem import fetch_one_station
 
-from aqueduct import DaskBackend, Task, LocalFilesystemStore, taskdef
-from aqueduct.artifact import Artifact, PickleArtifact, ParquetArtifact
-from aqueduct import ImmediateBackend
-
+from aqueduct import DaskBackend, ImmediateBackend, LocalFilesystemStore, Task, taskdef
+from aqueduct.artifact import Artifact, ParquetArtifact, PickleArtifact
 
 FS_STORE = LocalFilesystemStore(root="./")
 

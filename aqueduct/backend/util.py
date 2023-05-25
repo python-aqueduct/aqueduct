@@ -1,4 +1,4 @@
-from typing import Any, TypeAlias, Union, TypeVar, Callable
+from typing import Any, Callable, TypeAlias, TypeVar
 
 from ..task import Binding
 

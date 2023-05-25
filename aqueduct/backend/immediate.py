@@ -1,8 +1,8 @@
+from typing import TypeVar
+
+from ..task import Binding
 from .backend import Backend
 from .util import map_binding_tree
-from ..task import Binding
-
-from typing import TypeVar
 
 T = TypeVar("T")
 

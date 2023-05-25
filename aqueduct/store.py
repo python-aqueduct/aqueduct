@@ -5,7 +5,6 @@ So far, only the simple :class:`LocalFilesystemStore` is implemented."""
 import abc
 import datetime
 import pathlib
-
 from typing import BinaryIO, TextIO
 
 

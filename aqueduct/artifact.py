@@ -3,13 +3,12 @@
 
 import abc
 import logging
-import pandas as pd
 import pickle
+from typing import Any, BinaryIO, Generic, TypeVar
 
-from typing import Any, Generic, TypeVar
-from typing import BinaryIO
+import pandas as pd
 
-from .store import Store, LocalFilesystemStore
+from .store import LocalFilesystemStore, Store
 
 _logger = logging.getLogger(__name__)
 

@@ -23,9 +23,7 @@ Examples:
 from __future__ import annotations
 
 import abc
-
-from typing import TypeAlias, Union, Generic, TypeVar, Callable
-
+from typing import Callable, Generic, TypeAlias, TypeVar, Union
 
 from .artifact import Artifact
 
