@@ -1,13 +1,11 @@
+from dask.distributed import as_completed, Client, Future
 from typing import Any, TypeVar
 
-from dask.distributed import Future, Client, as_completed
+from .backend import Backend
+from ..task import Binding
+from .util import map_binding_tree
 
-from .task import Task, Binding
-
-
-class Backend:
-    def run(self, task: Task):
-        raise NotImplemented("Backend must implement run.")
+T = TypeVar("T")
 
 
 class DaskBackend(Backend):
@@ -37,9 +35,6 @@ class DaskClientProxy:
         return future
 
 
-T = TypeVar("T")
-
-
 def binding_tree_to_graph(input, client: DaskClientProxy):
     if isinstance(input, list):
         return [binding_tree_to_graph(x, client) for x in input]
@@ -66,12 +61,15 @@ def dict_with_bindings_to_graph(
 
 
 def create_dask_graph(binding: Binding, client: DaskClientProxy) -> Future:
-    # Could not figure out how to tell the type annotations that this is fine and
-    # the dict is mapped to a dict. So I use specific functions to map a tuple and
-    # a dict here.
-    new_args = tuple_with_bindings_to_graph(binding.args, client)
-    new_kwargs = dict_with_bindings_to_graph(binding.kwargs, client)
+    def binding_to_dask_future(binding: Binding) -> Future:
+        new_args = map_binding_tree(binding.args, binding_to_dask_future)
+        new_kwargs = map_binding_tree(binding.kwargs, binding_to_dask_future)
 
-    future = client.submit(binding.fn, *new_args, **new_kwargs)
+        print(new_kwargs)
+        future = client.submit(binding.fn, *new_args, **new_kwargs)
+
+        return future
+
+    future = binding_to_dask_future(binding)
 
     return future

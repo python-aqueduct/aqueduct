@@ -1,4 +1,5 @@
-"""Artifacts describe how to store the return value of a :class:`Task`."""
+"""Artifacts describe how to store the return value of a :class:`Task` inside a
+:class:`Store`."""
 
 import abc
 import logging

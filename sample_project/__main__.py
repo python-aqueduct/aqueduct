@@ -9,6 +9,7 @@ from earthsciencedata.tasks.metar.iem import fetch_one_station
 
 from aqueduct import DaskBackend, Task, LocalFilesystemStore, taskdef
 from aqueduct.artifact import Artifact, PickleArtifact, ParquetArtifact
+from aqueduct import ImmediateBackend
 
 
 FS_STORE = LocalFilesystemStore(root="./")
@@ -58,6 +59,8 @@ if __name__ == "__main__":
 
     backend = DaskBackend(client)
 
+    immediate_backend = ImmediateBackend()
+
     # dep = produce_np_array()
 
     # print("Before A")
@@ -70,11 +73,11 @@ if __name__ == "__main__":
     task = FetchStations(
         pd.to_datetime("2021-01-01"),
         pd.to_datetime("2021-02-01"),
-        station_list=station_df["station"],
+        station_list=list(station_df["station"])[:4],
     )
 
     task_binding = task()
-    response = backend.run(task_binding)
+    response = immediate_backend.run(task_binding)
 
     print(response)
 

@@ -1,23 +1,43 @@
+"""A `Store` is the interface between an :class:`Artifact` and a storage resource. 
+
+So far, only the simple :class:`LocalFilesystemStore` is implemented."""
+
+import abc
 import datetime
-import os
 import pathlib
 
-from typing import BinaryIO
+from typing import BinaryIO, TextIO
 
 
-class Store:
+class Store(abc.ABC):
+    def __contains__(self, key: str):
+        return self.exists(key)
+
+    @abc.abstractmethod
     def exists(self, name) -> bool:
         return False
 
+    @abc.abstractmethod
     def get_read_stream(self, name) -> BinaryIO:
         raise NotImplementedError()
 
+    @abc.abstractmethod
     def get_write_stream(self, name) -> BinaryIO:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def get_read_stream_text(self, name) -> TextIO:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def get_write_stream_text(self, name) -> TextIO:
         raise NotImplementedError()
 
 
 class LocalFilesystemStore(Store):
-    def __init__(self, root=os.getcwd()):
+    """Expose the local filesystem to store artifacts."""
+
+    def __init__(self, root="./"):
         self.root = pathlib.Path(root)
 
     def __contains__(self, key: str):
@@ -34,3 +54,9 @@ class LocalFilesystemStore(Store):
 
     def get_write_stream(self, name) -> BinaryIO:
         return (self.root / name).open("wb")
+
+    def get_read_stream_text(self, name) -> BinaryIO:
+        return (self.root / name).open("r")
+
+    def get_write_stream_text(self, name) -> BinaryIO:
+        return (self.root / name).open("w")

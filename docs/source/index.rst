@@ -12,6 +12,8 @@ Welcome to Aqueduct's documentation!
    :caption: Contents:
    
    artifact
+   backend
+   store
    task
 
 

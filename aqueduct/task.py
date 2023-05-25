@@ -21,33 +21,37 @@ Examples:
 
 from __future__ import annotations
 
-from typing import Union
+import abc
+
+from typing import TypeAlias, Union, Generic, TypeVar, Callable
 
 
 from .artifact import Artifact
 
+T = TypeVar("T")
 
-class Binding:
+
+class Binding(Generic[T]):
     """A work bundle that is the binding of a :class:`Task` to arguments.
 
     This work bundle can then be offloaded to an external process to be actually
     computed. Typically, Bindings are generated automatically and should only be created
     by the Task class."""
 
-    def __init__(self, task: Task, fn, *args, **kwargs):
+    def __init__(self, task: Task, fn: Callable[..., T], *args, **kwargs):
         self.task = task
         self.fn = fn
         self.args = args
         self.kwargs = kwargs
 
-    def compute(self):
+    def compute(self) -> T:
         return self.fn(*self.args, **self.kwargs)
 
     def is_pure(self) -> bool:
         return self.task.artifact == None
 
 
-RequirementSpec = Union[
+RequirementSpec: TypeAlias = Union[
     tuple[Binding], list[Binding], dict[str, Binding], Binding, None
 ]
 
@@ -63,7 +67,7 @@ def taskdef(requirements: RequirementSpec = None, artifact: Artifact | None = No
     return wrapper
 
 
-class Task:
+class Task(abc.ABC, Generic[T]):
     def __call__(self, *args, **kwargs):
         artifact = self.artifact()
         if artifact and artifact.exists():
@@ -107,6 +111,7 @@ class Task:
 
         return result
 
+    @abc.abstractmethod
     def run(self):
         raise NotImplementedError("Task must implement method `run`.")
 
