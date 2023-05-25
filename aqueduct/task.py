@@ -1,3 +1,24 @@
+"""Task logic for an Aqueduct project.
+
+A Task is a is a function and its requirements. If the Task specifies an
+:class:`Artifact`, then it is analogous to a target in a Makefile.
+
+Examples:
+
+    Define a basic task::
+
+        @taskdef() 
+        def my_task():
+            return np.random.rand(100,100)
+            
+    Save the return value of the function as an artifact every time the task is run. If
+    the artifact exists on the next execution, it is loaded from file instead of being
+    recomputed::
+    
+        @taskdef(artifact=PickleArtifact())
+        def my_task():
+            return"""
+
 from __future__ import annotations
 
 from typing import Union
@@ -7,6 +28,12 @@ from .artifact import Artifact
 
 
 class Binding:
+    """A work bundle that is the binding of a :class:`Task` to arguments.
+
+    This work bundle can then be offloaded to an external process to be actually
+    computed. Typically, Bindings are generated automatically and should only be created
+    by the Task class."""
+
     def __init__(self, task: Task, fn, *args, **kwargs):
         self.task = task
         self.fn = fn

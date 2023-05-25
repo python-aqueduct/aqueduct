@@ -1,3 +1,6 @@
+"""Artifacts describe how to store the return value of a :class:`Task`."""
+
+import abc
 import logging
 import pandas as pd
 import pickle
@@ -5,15 +8,18 @@ import pickle
 from typing import Any, Generic, TypeVar
 from typing import BinaryIO
 
-from .store import Store
+from .store import Store, LocalFilesystemStore
 
 _logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
 
-class Artifact(Generic[T]):
-    def __init__(self, name, store: Store):
+class Artifact(Generic[T], abc.ABC):
+    """Describes how to store the return value of a :class:`Task` to a
+    :class:`Store`."""
+
+    def __init__(self, name: str, store: Store = LocalFilesystemStore()):
         self._name = name
         self.store = store
 
@@ -21,9 +27,11 @@ class Artifact(Generic[T]):
     def name(self):
         return self._name
 
+    @abc.abstractmethod
     def load(self, stream: BinaryIO) -> T:
         raise NotImplementedError("Artifact must implement `load` method.")
 
+    @abc.abstractmethod
     def dump(self, object: T, stream: BinaryIO):
         raise NotImplementedError("Artifact must implement `dump` method.")
 
@@ -44,6 +52,8 @@ class Artifact(Generic[T]):
 
 
 class PickleArtifact(Artifact):
+    """Store objects using `pickle`."""
+
     def load(self, stream: BinaryIO) -> Any:
         return pickle.load(stream)
 
@@ -52,6 +62,8 @@ class PickleArtifact(Artifact):
 
 
 class ParquetArtifact(Artifact):
+    """Store :class:`pandas.DataFrame` objects to the Parquet format using `pandas`."""
+
     def load(self, stream: BinaryIO) -> pd.DataFrame:
         return pd.read_parquet(stream)
 
