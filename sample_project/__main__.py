@@ -12,6 +12,7 @@ import importlib.resources
 
 from aqueduct import DaskBackend, ImmediateBackend, LocalFilesystemStore, Task, task
 from aqueduct.artifact import Artifact, ParquetArtifact, PickleArtifact
+from aqueduct.config import set_config
 
 FS_STORE = LocalFilesystemStore(root="./")
 
@@ -54,6 +55,8 @@ class FetchStations(Task):
 @hydra.main(config_path="conf", config_name="sample", version_base="1.3")
 def cli(cfg):
     logging.basicConfig(level="INFO")
+
+    set_config(cfg)
 
     print(os.getcwd())
 
