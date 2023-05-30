@@ -55,15 +55,15 @@ RequirementSpec: TypeAlias = Union[
 ]
 
 
-def taskdef(requirements: RequirementSpec = None, artifact: Artifact | None = None):
+def task(*args, requirements: RequirementSpec = None, artifact: Artifact | None = None):
     """Decorator to quickly create a `Task` from a function. Example::
 
-        @taskdef()
+        @task
         def input_array():
             return np.random.rand(100, 100)
 
-        @taskdef(requirements=input_array())
-        def add_value(input_array, value):
+        @task(requirements={input_array: input_array()})
+        def add_value(some_param, input_array=None):
             return input_array + value
 
         with_10 = add_value(10).compute()
@@ -92,7 +92,14 @@ def taskdef(requirements: RequirementSpec = None, artifact: Artifact | None = No
             artifact=artifact,
         )
 
-    return wrapper
+    if args and len(args) == 1:
+        # Decorator was called directly, as in @taskdef
+        return wrapper(args[0])
+    elif args and len(args) > 0:
+        raise RuntimeError
+    else:
+        # Decorator was called with parentheses, as in @taskdef()
+        return wrapper
 
 
 class Task(abc.ABC, Generic[T]):

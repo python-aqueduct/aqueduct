@@ -1,13 +1,15 @@
 from .artifact import Artifact
-from .backend import DaskBackend, ImmediateBackend
+from .backend import ImmediateBackend
 from .store import LocalFilesystemStore
-from .task import Task, taskdef
+from .task import Task, task, Binding
+from .backend.dask import DaskBackend
 
 __all__ = [
     "Artifact",
+    "Binding",
     "DaskBackend",
     "ImmediateBackend",
     "LocalFilesystemStore",
     "Task",
-    "taskdef",
+    "task",
 ]
