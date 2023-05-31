@@ -34,7 +34,7 @@ def has_deep_key(d: dict[str, Any], deep_key: str) -> bool:
     return keys[-1] in d
 
 
-def get_deep_key(d: dict[str, Any], deep_key: str) -> Any:
+def get_deep_key(d: dict[str, Any], deep_key: str, default=None) -> Any:
     keys = deep_key.split(".")
 
     cursor = d
@@ -43,7 +43,10 @@ def get_deep_key(d: dict[str, Any], deep_key: str) -> Any:
         if isinstance(cursor, dict) and k in cursor:
             cursor = cursor[k]
         else:
-            raise KeyError("Unable to find key in dict.")
+            if default:
+                return default
+            else:
+                raise KeyError("Unable to find key in dict.")
 
     return cursor
 
@@ -55,7 +58,7 @@ def resolve_config_from_spec(spec: ConfigSpec, calling_task: "Task") -> Config:
     global_cfg = get_config()
 
     if isinstance(spec, str) and len(spec) > 0:
-        return global_cfg[spec]
+        return get_deep_key(global_cfg, spec, {})
     elif spec is None and has_deep_key(
         global_cfg, calling_task._fully_qualified_name()
     ):

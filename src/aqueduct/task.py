@@ -257,12 +257,11 @@ def task(
     def wrapper(fn):
         return WrappedTask(fn, requirements=requirements, artifact=artifact, cfg=cfg)
 
-    if args and len(args) == 1:
+    if args and len(args) == 1 and callable(args[0]):
         # Decorator was called directly, as in @taskdef. That means the function to
         # wrap is arg[0].
-        return wrapper(args[0])
-    elif args and len(args) != 1:
-        raise RuntimeError
+        fn = args[0]
+        return wrapper(fn)
     else:
         # Decorator was called with parentheses, as in @taskdef()
         return wrapper
@@ -308,7 +307,7 @@ class WrappedTask(Task):
         return self._cfg
 
     def _resolve_cfg(self):
-        return resolve_config_from_spec(self.cfg(), self._fn)
+        return resolve_config_from_spec(self.cfg(), self)
 
     def _fully_qualified_name(self) -> str:
         return fullname(self._fn)

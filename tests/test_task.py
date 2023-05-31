@@ -1,6 +1,7 @@
 import unittest
 
 from aqueduct.artifact import PickleArtifact, Artifact
+from aqueduct.binding import Binding
 from aqueduct.config import set_config
 from aqueduct.task import (
     fetch_args_from_config,
@@ -14,23 +15,45 @@ from aqueduct.task import (
 
 
 class PretenseTask(Task):
-    def run(self):
-        pass
+    def run(self, a, b, c=12):
+        return a + b + c
 
 
 @task
-def wrapped_task():
-    pass
+def wrapped_task(a, b):
+    return a + b
+
+
+@task()
+def wrapped_task_args(a, b):
+    return a + b
+
+
+class TestWrapper(unittest.TestCase):
+    def test_wrapped_call(self):
+        binding = wrapped_task(2, 2)
+        self.assertIsInstance(binding, Binding)
+
+    def test_wrapped_call_with_args(self):
+        binding = wrapped_task_args(2, 2)
+        self.assertIsInstance(binding, Binding)
+
+
+class TestSubclass(unittest.TestCase):
+    def test_subclass_call(self):
+        t = PretenseTask()
+        binding = t(1, 2, 3)
+        self.assertIsInstance(binding, Binding)
 
 
 class TestFullyQualifiedName(unittest.TestCase):
     def test_fqn_child(self):
         t = PretenseTask()
-        self.assertEqual("test.test_task.PretenseTask", t._fully_qualified_name())
+        self.assertEqual("tests.test_task.PretenseTask", t._fully_qualified_name())
 
     def test_fqn_wrapped(self):
         self.assertEqual(
-            "test.test_task.wrapped_task", wrapped_task._fully_qualified_name()
+            "tests.test_task.wrapped_task", wrapped_task._fully_qualified_name()
         )
 
 
@@ -53,8 +76,13 @@ class TestResolveConfig(unittest.TestCase):
         self.assertDictEqual({"value": 2}, task._resolve_cfg())
 
     def test_resolve_object_name_fn(self):
+        inner_dict = {"a": 1, "b": 2}
+        set_config({"tests": {"test_task": {"PretenseTask": inner_dict}}})
+
         t = PretenseTask()
         config = resolve_config_from_spec(None, t)
+
+        self.assertDictEqual(config, inner_dict)
 
     def test_resolve_object_name_class(self):
         config = resolve_config_from_spec(None, wrapped_task)
@@ -126,3 +154,15 @@ class TestResolveArtifact(unittest.TestCase):
 
     def test_none(self):
         self.assertIsNone(resolve_artifact_from_spec(None))
+
+
+class TestWrappedTask(unittest.TestCase):
+    def test_simple(self):
+        def sample_fn(a, b):
+            return a + b
+
+        t = WrappedTask(sample_fn)
+        binding = t(2, 2)
+
+        self.assertIsInstance(binding, Binding)
+        self.assertEqual(4, binding.compute())
