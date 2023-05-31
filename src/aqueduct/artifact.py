@@ -1,16 +1,15 @@
 """Artifacts describe how to store the return value of a :class:`Task` inside a
 :class:`Store`."""
+from __future__ import annotations
 
 import abc
-import hydra
 import logging
 import pickle
-from typing import Any, BinaryIO, Generic, TypeAlias, TypeVar
+from typing import Any, BinaryIO, Generic, TypeAlias, TypeVar, Callable
 
 import pandas as pd
 
-from .config import get_config
-from .store import LocalFilesystemStore, Store, get_default_store
+from .store import Store, get_default_store
 
 _logger = logging.getLogger(__name__)
 
@@ -39,26 +38,20 @@ class Artifact(Generic[T], abc.ABC):
         return self._name
 
     @abc.abstractmethod
-    def load(self, stream: BinaryIO) -> T:
+    def deserialize(self, stream: BinaryIO) -> T:
         raise NotImplementedError("Artifact must implement `load` method.")
 
     @abc.abstractmethod
-    def dump(self, object: T, stream: BinaryIO):
+    def serialize(self, object: T, stream: BinaryIO):
         raise NotImplementedError("Artifact must implement `dump` method.")
 
     def load_from_store(self):
         store = resolve_store_from_spec(self.store)
-        stream = store.get_read_stream(self.name)
-        loaded_object = self.load(stream)
-        stream.close()
-
-        return loaded_object
+        return store.load_binary(self.name, self.deserialize)
 
     def dump_to_store(self, object_to_dump):
         store = resolve_store_from_spec(self.store)
-        stream = store.get_write_stream(self.name)
-        self.dump(object_to_dump, stream)
-        stream.close()
+        store.dump_binary(self.name, object_to_dump, self.serialize)
 
     def exists(self) -> bool:
         store = resolve_store_from_spec(self.store)
@@ -68,23 +61,44 @@ class Artifact(Generic[T], abc.ABC):
         return resolve_store_from_spec(self.store)
 
 
+ArtifactSpec: TypeAlias = Artifact | str | Callable[..., Artifact] | None
+
+
+def resolve_artifact_from_spec(
+    spec: ArtifactSpec, template: dict[str, Any], *args, **kwargs
+) -> Artifact | None:
+    if isinstance(spec, Artifact):
+        return spec
+    elif isinstance(spec, str):
+        breakpoint()
+        artifact_cls = get_default_artifact_cls()
+        artifact_name = spec.format(**template)
+        return artifact_cls(artifact_name)
+    elif callable(spec):
+        return spec(*args, **kwargs)
+    elif spec is None:
+        return None
+    else:
+        raise RuntimeError(f"Could not resolve artifact spec: {spec}")
+
+
 class PickleArtifact(Artifact):
     """Store objects using `pickle`."""
 
-    def load(self, stream: BinaryIO) -> Any:
+    def deserialize(self, stream: BinaryIO) -> Any:
         return pickle.load(stream)
 
-    def dump(self, object: Any, stream: BinaryIO):
+    def serialize(self, object: Any, stream: BinaryIO):
         return pickle.dump(object, stream)
 
 
 class ParquetArtifact(Artifact):
     """Store :class:`pandas.DataFrame` objects to the Parquet format using `pandas`."""
 
-    def load(self, stream: BinaryIO) -> pd.DataFrame:
+    def deserialize(self, stream: BinaryIO) -> pd.DataFrame:
         return pd.read_parquet(stream)
 
-    def dump(self, df: pd.DataFrame, stream: BinaryIO):
+    def serialize(self, df: pd.DataFrame, stream: BinaryIO):
         return df.to_parquet(stream)
 
 

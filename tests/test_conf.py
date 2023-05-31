@@ -1,3 +1,4 @@
+import omegaconf
 import unittest
 
 from aqueduct.config import get_deep_key, has_deep_key
@@ -15,3 +16,8 @@ class TestDeepDict(unittest.TestCase):
 
     def test_has_deep_key(self):
         pass
+
+    def test_deep_key_omegaconf(self):
+        conf = omegaconf.DictConfig({"a": {"b": 3}})
+
+        self.assertEqual(get_deep_key(conf, "a.b"), 3)

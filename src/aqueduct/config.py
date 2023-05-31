@@ -1,4 +1,4 @@
-from typing import Any, TypeAlias, TypeVar, TYPE_CHECKING
+from typing import Any, Mapping, TypeAlias, TypeVar, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .task import Task
@@ -17,12 +17,12 @@ def get_config():
     return config
 
 
-Config: TypeAlias = dict[str, Any]
+Config: TypeAlias = Mapping[str, Any]
 ConfigSpec: TypeAlias = Config | str | None
 T = TypeVar("T")
 
 
-def has_deep_key(d: dict[str, Any], deep_key: str) -> bool:
+def has_deep_key(d: Config, deep_key: str) -> bool:
     keys = deep_key.split(".")
 
     for k in keys[:-1]:
@@ -34,21 +34,21 @@ def has_deep_key(d: dict[str, Any], deep_key: str) -> bool:
     return keys[-1] in d
 
 
-def get_deep_key(d: dict[str, Any], deep_key: str, default=None) -> Any:
+def get_deep_key(d: Config, deep_key: str, default=None) -> Any:
     keys = deep_key.split(".")
 
     cursor = d
 
-    for k in keys:
-        if isinstance(cursor, dict) and k in cursor:
-            cursor = cursor[k]
+    try:
+        for k in keys:
+            if k in cursor:
+                cursor = cursor[k]
+        return cursor
+    except (TypeError, KeyError) as e:
+        if default:
+            return default
         else:
-            if default:
-                return default
-            else:
-                raise KeyError("Unable to find key in dict.")
-
-    return cursor
+            raise e
 
 
 def resolve_config_from_spec(spec: ConfigSpec, calling_task: "Task") -> Config:

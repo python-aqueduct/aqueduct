@@ -1,13 +1,10 @@
 import unittest
 
-from aqueduct.artifact import PickleArtifact, Artifact
 from aqueduct.binding import Binding
 from aqueduct.config import set_config
 from aqueduct.task import (
     fetch_args_from_config,
     WrappedTask,
-    resolve_artifact_from_spec,
-    get_default_artifact_cls,
     resolve_config_from_spec,
     Task,
     task,
@@ -75,7 +72,7 @@ class TestResolveConfig(unittest.TestCase):
 
         self.assertDictEqual({"value": 2}, task._resolve_cfg())
 
-    def test_resolve_object_name_fn(self):
+    def test_resolve_object_name_class(self):
         inner_dict = {"a": 1, "b": 2}
         set_config({"tests": {"test_task": {"PretenseTask": inner_dict}}})
 
@@ -84,14 +81,15 @@ class TestResolveConfig(unittest.TestCase):
 
         self.assertDictEqual(config, inner_dict)
 
-    def test_resolve_object_name_class(self):
+    def test_resolve_object_name_fn(self):
+        inner_dict = {"a": 2}
+        set_config({"tests": {"test_task": {"wrapped_task": inner_dict}}})
         config = resolve_config_from_spec(None, wrapped_task)
+
+        self.assertDictEqual(config, inner_dict)
 
 
 class TestFetchArgs(unittest.TestCase):
-    def setUp(self):
-        pass
-
     def test_empty_config(self):
         def fn(a, b=None):
             self.assertEqual(a, 2)
@@ -110,50 +108,17 @@ class TestFetchArgs(unittest.TestCase):
 
         fn(*new_args, **new_kwargs)
 
-    def test_should_fail_on_missing(self):
-        def fn(a, b):
-            pass
 
-        fetch_args_lambda = lambda: fetch_args_from_config(fn, tuple(), {}, {"a": 13})
+class TestFetchArgsOnCall(unittest.TestCase):
+    def tearDown(self):
+        set_config({})
 
-        self.assertRaises(TypeError, fetch_args_lambda)
+    def test_missing_params(self):
+        inner_dict = {"a": 2, "b": 3}
+        set_config({"tests": {"test_task": {"wrapped_task": inner_dict}}})
 
-
-class TestResolveArtifact(unittest.TestCase):
-    def test_str(self):
-        spec = "artifact.pkl"
-        artifact = resolve_artifact_from_spec(spec)
-
-        self.assertIsInstance(artifact, get_default_artifact_cls())
-        self.assertEqual(artifact.name, spec)
-
-    def test_str_template(self):
-        name = "toto"
-        spec = "artifact_{name}.pkl"
-
-        artifact = resolve_artifact_from_spec(spec, name=name)
-
-        self.assertEqual(spec.format(name=name), artifact.name)
-        self.assertIsInstance(artifact, get_default_artifact_cls())
-
-    def test_callable(self):
-        def spec(name):
-            return PickleArtifact(name)
-
-        artifact = resolve_artifact_from_spec(spec, "toto")
-
-        self.assertEqual("toto", artifact.name)
-        self.assertIsInstance(artifact, PickleArtifact)
-
-    def test_artifact(self):
-        artifact = PickleArtifact("toto")
-
-        returned = resolve_artifact_from_spec(artifact)
-
-        self.assertEqual(artifact, returned)
-
-    def test_none(self):
-        self.assertIsNone(resolve_artifact_from_spec(None))
+        binding = wrapped_task()
+        self.assertEqual(5, binding.compute())
 
 
 class TestWrappedTask(unittest.TestCase):
@@ -166,3 +131,10 @@ class TestWrappedTask(unittest.TestCase):
 
         self.assertIsInstance(binding, Binding)
         self.assertEqual(4, binding.compute())
+
+
+class TestBinding(unittest.TestCase):
+    def test_fail_on_missing_args(self):
+        fetch_args_lambda = lambda: wrapped_task(2)
+
+        self.assertRaises(TypeError, fetch_args_lambda)

@@ -28,11 +28,14 @@ from typing import Any, Callable, Generic, TypeAlias, TypeVar, Union
 
 from .binding import Binding
 
-from .artifact import Artifact, get_default_artifact_cls
-from .config import ConfigSpec, resolve_config_from_spec
+from .artifact import (
+    Artifact,
+    ArtifactSpec,
+    resolve_artifact_from_spec,
+)
+from .config import Config, ConfigSpec, resolve_config_from_spec
 
 T = TypeVar("T")
-ArtifactSpec: TypeAlias = Artifact | str | Callable[..., Artifact] | None
 
 RequirementSpec: TypeAlias = Union[
     tuple[Binding], list[Binding], dict[str, Binding], Binding, None
@@ -41,7 +44,7 @@ RequirementArg: TypeAlias = Union[Callable[..., RequirementSpec], RequirementSpe
 
 
 def fetch_args_from_config(
-    fn: Callable, args, kwargs, cfg: dict[str, Any]
+    fn: Callable, args, kwargs, cfg: Config
 ) -> tuple[tuple[Any, ...], dict[str, Any]]:
     """Given a callable and a configuration dict, try and fetch argument values from
     the config dict if needed.
@@ -57,11 +60,8 @@ def fetch_args_from_config(
             corresponding value in `cfg`, if it exists there.
         kwargs: The same kwargs, except if an argument value was `None`, it is replaced
             by the value of the corresponding key in `cfg`."""
-    try:
-        signature = inspect.signature(fn)
-        bind = signature.bind(*args, **kwargs)
-    except TypeError:
-        raise
+    signature = inspect.signature(fn)
+    bind = signature.bind_partial(*args, **kwargs)
 
     for p in signature.parameters:
         # Find all arguments which do not have a defined value.
@@ -71,22 +71,9 @@ def fetch_args_from_config(
             if p in cfg:
                 bind.arguments[p] = cfg[p]
 
+    bind.apply_defaults()
+
     return bind.args, bind.kwargs
-
-
-def resolve_artifact_from_spec(spec: ArtifactSpec, *args, **kwargs) -> Artifact | None:
-    if isinstance(spec, Artifact):
-        return spec
-    elif isinstance(spec, str):
-        artifact_cls = get_default_artifact_cls()
-        artifact_name = spec.format(*args, **kwargs)
-        return artifact_cls(artifact_name)
-    elif callable(spec):
-        return spec(*args, **kwargs)
-    elif spec is None:
-        return None
-    else:
-        raise RuntimeError(f"Could not resolve artifact spec: {spec}")
 
 
 class Task(abc.ABC, Generic[T]):
@@ -102,16 +89,15 @@ class Task(abc.ABC, Generic[T]):
         `**kwargs`. The Binding is a work bundle that can then be executed locally or
         sent to a computing backend.
         """
-        artifact = self._resolve_artifact()
-        if artifact and artifact.exists():
-            """Exclude the dependencies from the graph to avoid computing them."""
-            return Binding(self, artifact.load_from_store)
-
         requirements = self.requirements()
 
-        args, kwargs = fetch_args_from_config(
-            self.run, args, kwargs, self._resolve_cfg()
-        )
+        # Modify args and kwargs to use values from config if they exist.
+        args, kwargs = self._args_with_values_from_config(*args, **kwargs)
+
+        # Test bind the arguments to the inner function. If it doesn't work now, there's
+        # no point in creating the Binding, it will never be able ot call the function
+        # correctly.
+        _ = inspect.signature(self.run).bind(*args, **kwargs)
 
         if callable(requirements):
             requirements = requirements(*args, **kwargs)
@@ -127,8 +113,19 @@ class Task(abc.ABC, Generic[T]):
         else:
             raise Exception("Unexpected case when building Binding.")
 
+    def _args_with_values_from_config(self, *args, **kwargs):
+        config = self._resolve_cfg()
+        return fetch_args_from_config(self.run, args, kwargs, config)
+
     def _create_binding(self, *args, **kwargs):
-        return Binding(self, self.run_and_maybe_cache, *args, **kwargs)
+        # Resolve artifact. If there is an artifact configure, use a runner function
+        # that makes use of the cache.
+        artifact = self._resolve_artifact(*args, **kwargs)
+        if artifact:
+            """Exclude the dependencies from the graph to avoid computing them."""
+            return Binding(self, self._run_with_cache, *args, **kwargs)
+        else:
+            return Binding(self, self.run, *args, **kwargs)
 
     def artifact(self) -> ArtifactSpec:
         """Express wheter the output of `run` should be saved as an :class:`Artifact`.
@@ -143,7 +140,13 @@ class Task(abc.ABC, Generic[T]):
         return None
 
     def _resolve_artifact(self, *args, **kwargs) -> Artifact | None:
-        return resolve_artifact_from_spec(self.artifact(), *args, **kwargs)
+        signature = inspect.signature(self.run)
+        args, kwargs = self._args_with_values_from_config(*args, **kwargs)
+        bind = signature.bind_partial(*args, **kwargs)
+
+        return resolve_artifact_from_spec(
+            self.artifact(), bind.arguments, *args, **kwargs
+        )
 
     def requirements(self) -> RequirementArg:
         """Describe the inputs required to run the Task. The inputs will be passed to
@@ -196,16 +199,23 @@ class Task(abc.ABC, Generic[T]):
     def _resolve_cfg(self):
         return resolve_config_from_spec(self.cfg(), self)
 
-    def run_and_maybe_cache(self, *args, **kwargs) -> T:
+    def _run_with_cache(self, *args, **kwargs) -> T:
+        """An artifact was detected. Check cache before running the function, and
+        save result to cache after computation."""
+        artifact = self._resolve_artifact(*args, **kwargs)
+
+        if artifact is None:
+            raise RuntimeError("No artifact specified while it was expected to be.")
+
+        if artifact.exists():
+            return artifact.load_from_store()
+
         result = self.run(*args, **kwargs)
 
-        artifact = self._resolve_artifact()
-        if artifact:
-            artifact.dump_to_store(result)
+        artifact.dump_to_store(result)
 
         return result
 
-    @abc.abstractmethod
     def run(self, *args, **kwargs) -> T:
         """Override this to define how to execute the Task."""
         raise NotImplementedError("Task must implement method `run`.")
@@ -281,33 +291,39 @@ def fullname(o) -> str:
         return module + "." + name
 
 
-class WrappedTask(Task):
+class WrappedTask(Task[T]):
     def __init__(
         self,
-        fn,
+        fn: Callable[..., T],
         requirements: RequirementSpec = None,
         artifact: ArtifactSpec = None,
         cfg: ConfigSpec = None,
     ):
-        self._fn = fn
         self._artifact = artifact
         self._requirements = requirements
         self._cfg = cfg
 
+        self._fn = fn
+        self.run = fn
+
     def run(self, *args, **kwargs):
+        # This method is never called as is, it is replaced by the input fn in the
+        # constructor. We do this to preserve fn's signature. It may be possible to
+        # to this cleanly using functools.wraps, but since this is a method instead of
+        # a function I could not get it to work.
         return self._fn(*args, **kwargs)
 
-    def artifact(self):
+    def artifact(self) -> ArtifactSpec:
         return self._artifact
 
-    def requirements(self):
+    def requirements(self) -> RequirementSpec:
         return self._requirements
 
-    def cfg(self):
+    def cfg(self) -> ConfigSpec:
         return self._cfg
 
-    def _resolve_cfg(self):
+    def _resolve_cfg(self) -> Config:
         return resolve_config_from_spec(self.cfg(), self)
 
     def _fully_qualified_name(self) -> str:
-        return fullname(self._fn)
+        return fullname(self.run)

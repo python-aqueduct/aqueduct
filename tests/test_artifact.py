@@ -3,7 +3,12 @@ import pandas as pd
 import unittest
 import unittest.mock
 
-from aqueduct.artifact import ParquetArtifact
+from aqueduct.artifact import (
+    ParquetArtifact,
+    resolve_artifact_from_spec,
+    Artifact,
+    PickleArtifact,
+)
 from aqueduct.store import Store
 
 
@@ -16,4 +21,41 @@ class TestParquetArtifact(unittest.TestCase):
     def test_dump(self):
         stream = io.BytesIO()
         df = pd.DataFrame()
-        self.artifact.dump(df, stream)
+        self.artifact.serialize(df, stream)
+
+
+class TestResolveArtifact(unittest.TestCase):
+    def test_str(self):
+        spec = "artifact.pkl"
+        artifact = resolve_artifact_from_spec(spec)
+
+        self.assertIsInstance(artifact, Artifact)
+        self.assertEqual(artifact.name, spec)
+
+    def test_str_template(self):
+        name = "toto"
+        spec = "artifact_{name}.pkl"
+
+        artifact = resolve_artifact_from_spec(spec, name=name)
+
+        self.assertEqual(spec.format(name=name), artifact.name)
+        self.assertIsInstance(artifact, Artifact)
+
+    def test_callable(self):
+        def spec(name):
+            return PickleArtifact(name)
+
+        artifact = resolve_artifact_from_spec(spec, "toto")
+
+        self.assertEqual("toto", artifact.name)
+        self.assertIsInstance(artifact, PickleArtifact)
+
+    def test_artifact(self):
+        artifact = PickleArtifact("toto")
+
+        returned = resolve_artifact_from_spec(artifact)
+
+        self.assertEqual(artifact, returned)
+
+    def test_none(self):
+        self.assertIsNone(resolve_artifact_from_spec(None))
