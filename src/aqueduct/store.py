@@ -4,8 +4,11 @@ So far, only the simple :class:`LocalFilesystemStore` is implemented."""
 
 import abc
 import datetime
+import hydra
 import pathlib
 from typing import BinaryIO, TextIO
+
+from .config import get_config
 
 
 class Store(abc.ABC):
@@ -59,3 +62,11 @@ class LocalFilesystemStore(Store):
 
     def get_write_stream_text(self, name) -> BinaryIO:
         return (self.root / name).open("w")
+
+
+def get_default_store() -> Store:
+    cfg = get_config()
+    if "aqueduct" in cfg and "default_store" in cfg["aqueduct"]:
+        return hydra.utils.instantiate(cfg["aqueduct"]["default_store"])
+    else:
+        return None

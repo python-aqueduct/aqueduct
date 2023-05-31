@@ -219,7 +219,6 @@ class Task(abc.ABC, Generic[T]):
             return user_cfg
         elif isinstance(user_cfg, str) and len(user_cfg) > 0:
             global_cfg = get_config()
-            breakpoint()
             return global_cfg[user_cfg]
         elif not user_cfg:
             return {}

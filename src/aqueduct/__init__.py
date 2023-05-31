@@ -1,5 +1,6 @@
 from .artifact import Artifact
 from .backend import ImmediateBackend
+from .config import set_config
 from .store import LocalFilesystemStore
 from .task import Task, task, Binding
 from .backend.dask import DaskBackend
@@ -12,4 +13,5 @@ __all__ = [
     "LocalFilesystemStore",
     "Task",
     "task",
+    "set_config",
 ]

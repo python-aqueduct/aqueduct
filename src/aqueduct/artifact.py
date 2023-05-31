@@ -2,24 +2,38 @@
 :class:`Store`."""
 
 import abc
+import hydra
 import logging
 import pickle
 from typing import Any, BinaryIO, Generic, TypeVar
 
 import pandas as pd
 
-from .store import LocalFilesystemStore, Store
+from .config import get_config
+from .store import LocalFilesystemStore, Store, get_default_store
 
 _logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
+
+StoreSpec: TypeVar = Store | None
+
+
+def resolve_store_from_spec(spec: StoreSpec) -> Store | None:
+    if isinstance(spec, Store):
+        return spec
+    elif spec is None:
+        # Try and use the default store, if its defined.
+        return get_default_store()
+    else:
+        raise ValueError("Unable to interpret StoreSpec.")
 
 
 class Artifact(Generic[T], abc.ABC):
     """Describes how to store the return value of a :class:`Task` to a
     :class:`Store`."""
 
-    def __init__(self, name: str, store: Store = LocalFilesystemStore()):
+    def __init__(self, name: str, store: StoreSpec = None):
         self._name = name
         self.store = store
 
@@ -49,6 +63,9 @@ class Artifact(Generic[T], abc.ABC):
 
     def exists(self) -> bool:
         return self.name in self.store
+
+    def _resolve_store(self):
+        return resolve_store_from_spec(self.store)
 
 
 class PickleArtifact(Artifact):

@@ -1,4 +1,4 @@
-config: dict[str] | None = None
+config: dict[str] = {}
 
 
 def set_config(cfg):
