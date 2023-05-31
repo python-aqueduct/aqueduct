@@ -69,3 +69,7 @@ class ParquetArtifact(Artifact):
 
     def dump(self, df: pd.DataFrame, stream: BinaryIO):
         return df.to_parquet(stream)
+
+
+def get_default_artifact_cls():
+    return PickleArtifact

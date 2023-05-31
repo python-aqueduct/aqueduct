@@ -26,10 +26,11 @@ import abc
 import inspect
 from typing import Any, Callable, Generic, TypeAlias, TypeVar, Union
 
-from .artifact import Artifact
+from .artifact import Artifact, get_default_artifact_cls
 from .config import get_config
 
 T = TypeVar("T")
+ArtifactSpec: TypeAlias = Artifact | str | Callable[..., Artifact] | None
 
 
 class Binding(Generic[T]):
@@ -92,6 +93,21 @@ def fetch_args_from_config(
     return bind.args, bind.kwargs
 
 
+def resolve_artifact_from_spec(spec: ArtifactSpec, *args, **kwargs) -> Artifact | None:
+    if isinstance(spec, Artifact):
+        return spec
+    elif isinstance(spec, str):
+        artifact_cls = get_default_artifact_cls()
+        artifact_name = spec.format(*args, **kwargs)
+        return artifact_cls(artifact_name)
+    elif callable(spec):
+        return spec(*args, **kwargs)
+    elif spec is None:
+        return None
+    else:
+        raise RuntimeError(f"Could not resolve artifact spec: {spec}")
+
+
 class Task(abc.ABC, Generic[T]):
     """Base class for a Task. Subclass this to define your own task.
 
@@ -133,7 +149,7 @@ class Task(abc.ABC, Generic[T]):
     def _create_binding(self, *args, **kwargs):
         return Binding(self, self.run_and_maybe_cache, *args, **kwargs)
 
-    def artifact(self) -> Artifact | None:
+    def artifact(self) -> ArtifactSpec:
         """Express wheter the output of `run` should be saved as an :class:`Artifact`.
 
         When running the Task, if the artifact was previously created and is available
@@ -144,6 +160,9 @@ class Task(abc.ABC, Generic[T]):
             If no artifact should be created, return `None`.
             If an artifact should be created, return an :class:`Artifact` instance."""
         return None
+
+    def _resolve_artifact(self, *args, **kwargs) -> Artifact | None:
+        return resolve_artifact_from_spec(self.artifact(), *args, **kwargs)
 
     def requirements(self) -> RequirementArg:
         """Describe the inputs required to run the Task. The inputs will be passed to
@@ -259,7 +278,8 @@ def task(
         return WrappedTask(fn, requirements=requirements, artifact=artifact, cfg=cfg)
 
     if args and len(args) == 1:
-        # Decorator was called directly, as in @taskdef
+        # Decorator was called directly, as in @taskdef. That means the function to
+        # wrap is arg[0].
         return wrapper(args[0])
     elif args and len(args) != 1:
         raise RuntimeError
@@ -273,7 +293,7 @@ class WrappedTask(Task):
         self,
         fn,
         requirements: RequirementSpec = None,
-        artifact=None,
+        artifact: ArtifactSpec = None,
         cfg: str | dict[str] | None = None,
     ):
         self.fn = fn

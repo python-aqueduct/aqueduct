@@ -1,7 +1,13 @@
 import unittest
 
+from aqueduct.artifact import PickleArtifact
 from aqueduct.config import set_config
-from aqueduct.task import fetch_args_from_config, WrappedTask
+from aqueduct.task import (
+    fetch_args_from_config,
+    WrappedTask,
+    resolve_artifact_from_spec,
+    get_default_artifact_cls,
+)
 
 
 class TestResolveConfig(unittest.TestCase):
@@ -52,3 +58,40 @@ class TestFetchArgs(unittest.TestCase):
         fetch_args_lambda = lambda: fetch_args_from_config(fn, tuple(), {}, {"a": 13})
 
         self.assertRaises(TypeError, fetch_args_lambda)
+
+
+class TestResolveArtifact(unittest.TestCase):
+    def test_str(self):
+        spec = "artifact.pkl"
+        artifact = resolve_artifact_from_spec(spec)
+
+        self.assertIsInstance(artifact, get_default_artifact_cls())
+        self.assertEquals(artifact.name, spec)
+
+    def test_str_template(self):
+        name = "toto"
+        spec = "artifact_{name}.pkl"
+
+        artifact = resolve_artifact_from_spec(spec, name=name)
+
+        self.assertEquals(spec.format(name=name), artifact.name)
+        self.assertIsInstance(artifact, get_default_artifact_cls())
+
+    def test_callable(self):
+        def spec(name):
+            return PickleArtifact(name)
+
+        artifact = resolve_artifact_from_spec(spec, "toto")
+
+        self.assertEquals("toto", artifact.name)
+        self.assertIsInstance(artifact, PickleArtifact)
+
+    def test_artifact(self):
+        artifact = PickleArtifact("toto")
+
+        returned = resolve_artifact_from_spec(artifact)
+
+        self.assertEqual(artifact, returned)
+
+    def test_none(self):
+        self.assertIsNone(resolve_artifact_from_spec(None))
