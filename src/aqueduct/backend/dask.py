@@ -1,5 +1,7 @@
 from typing import Any, TypeVar, TYPE_CHECKING
 
+import logging
+
 from dask.distributed import Client, Future, as_completed
 
 from .backend import Backend
@@ -9,6 +11,8 @@ if TYPE_CHECKING:
     from ..binding import Binding
 
 T = TypeVar("T")
+
+_logger = logging.getLogger(__name__)
 
 
 class DaskBackend(Backend):
@@ -21,9 +25,6 @@ class DaskBackend(Backend):
         self.client = DaskClientProxy(client)
 
     def run(self, binding: "Binding") -> Any:
-        if not isinstance(binding, Binding):
-            raise ValueError("Backend can only run Binding objects.")
-
         graph = create_dask_graph(binding, self.client)
 
         for _ in as_completed(self.client.futures, raise_errors=False):
@@ -36,6 +37,9 @@ class DaskClientProxy:
     def __init__(self, dask_client: Client):
         self.client = dask_client
         self.futures = []
+        _logger.info(
+            f"Connected to Dask client with Dashboard Link: {dask_client.dashboard_link}"
+        )
 
     def submit(self, fn, *args, **kwargs):
         future = self.client.submit(fn, *args, **kwargs)

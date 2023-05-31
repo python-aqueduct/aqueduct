@@ -1,4 +1,5 @@
 import io
+import inspect
 import pandas as pd
 import unittest
 import unittest.mock
@@ -24,10 +25,14 @@ class TestParquetArtifact(unittest.TestCase):
         self.artifact.serialize(df, stream)
 
 
+def useless_fn(name):
+    return name
+
+
 class TestResolveArtifact(unittest.TestCase):
     def test_str(self):
         spec = "artifact.pkl"
-        artifact = resolve_artifact_from_spec(spec)
+        artifact = resolve_artifact_from_spec(spec, inspect.signature(useless_fn))
 
         self.assertIsInstance(artifact, Artifact)
         self.assertEqual(artifact.name, spec)
@@ -36,7 +41,9 @@ class TestResolveArtifact(unittest.TestCase):
         name = "toto"
         spec = "artifact_{name}.pkl"
 
-        artifact = resolve_artifact_from_spec(spec, name=name)
+        artifact = resolve_artifact_from_spec(
+            spec, inspect.signature(useless_fn), name=name
+        )
 
         self.assertEqual(spec.format(name=name), artifact.name)
         self.assertIsInstance(artifact, Artifact)
@@ -45,7 +52,9 @@ class TestResolveArtifact(unittest.TestCase):
         def spec(name):
             return PickleArtifact(name)
 
-        artifact = resolve_artifact_from_spec(spec, "toto")
+        artifact = resolve_artifact_from_spec(
+            spec, inspect.signature(useless_fn), "toto"
+        )
 
         self.assertEqual("toto", artifact.name)
         self.assertIsInstance(artifact, PickleArtifact)
@@ -53,9 +62,11 @@ class TestResolveArtifact(unittest.TestCase):
     def test_artifact(self):
         artifact = PickleArtifact("toto")
 
-        returned = resolve_artifact_from_spec(artifact)
+        returned = resolve_artifact_from_spec(artifact, inspect.signature(useless_fn))
 
         self.assertEqual(artifact, returned)
 
     def test_none(self):
-        self.assertIsNone(resolve_artifact_from_spec(None))
+        self.assertIsNone(
+            resolve_artifact_from_spec(None, inspect.signature(useless_fn))
+        )

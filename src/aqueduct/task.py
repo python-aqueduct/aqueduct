@@ -141,12 +141,8 @@ class Task(abc.ABC, Generic[T]):
 
     def _resolve_artifact(self, *args, **kwargs) -> Artifact | None:
         signature = inspect.signature(self.run)
-        args, kwargs = self._args_with_values_from_config(*args, **kwargs)
-        bind = signature.bind_partial(*args, **kwargs)
 
-        return resolve_artifact_from_spec(
-            self.artifact(), bind.arguments, *args, **kwargs
-        )
+        return resolve_artifact_from_spec(self.artifact(), signature, *args, **kwargs)
 
     def requirements(self) -> RequirementArg:
         """Describe the inputs required to run the Task. The inputs will be passed to

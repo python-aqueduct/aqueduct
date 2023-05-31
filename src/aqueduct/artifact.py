@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import inspect
 import logging
 import pickle
 from typing import Any, BinaryIO, Generic, TypeAlias, TypeVar, Callable
@@ -65,14 +66,17 @@ ArtifactSpec: TypeAlias = Artifact | str | Callable[..., Artifact] | None
 
 
 def resolve_artifact_from_spec(
-    spec: ArtifactSpec, template: dict[str, Any], *args, **kwargs
+    spec: ArtifactSpec,
+    signature: inspect.Signature,
+    *args,
+    **kwargs,
 ) -> Artifact | None:
     if isinstance(spec, Artifact):
         return spec
     elif isinstance(spec, str):
-        breakpoint()
         artifact_cls = get_default_artifact_cls()
-        artifact_name = spec.format(**template)
+        bind = signature.bind_partial(*args, **kwargs)
+        artifact_name = spec.format(**bind.arguments)
         return artifact_cls(artifact_name)
     elif callable(spec):
         return spec(*args, **kwargs)
