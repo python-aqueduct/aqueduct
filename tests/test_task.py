@@ -1,13 +1,37 @@
 import unittest
 
-from aqueduct.artifact import PickleArtifact
+from aqueduct.artifact import PickleArtifact, Artifact
 from aqueduct.config import set_config
 from aqueduct.task import (
     fetch_args_from_config,
     WrappedTask,
     resolve_artifact_from_spec,
     get_default_artifact_cls,
+    resolve_config_from_spec,
+    Task,
+    task,
 )
+
+
+class PretenseTask(Task):
+    def run(self):
+        pass
+
+
+@task
+def wrapped_task():
+    pass
+
+
+class TestFullyQualifiedName(unittest.TestCase):
+    def test_fqn_child(self):
+        t = PretenseTask()
+        self.assertEqual("test.test_task.PretenseTask", t._fully_qualified_name())
+
+    def test_fqn_wrapped(self):
+        self.assertEqual(
+            "test.test_task.wrapped_task", wrapped_task._fully_qualified_name()
+        )
 
 
 class TestResolveConfig(unittest.TestCase):
@@ -27,6 +51,13 @@ class TestResolveConfig(unittest.TestCase):
         task = WrappedTask(lambda x: x, cfg="section")
 
         self.assertDictEqual({"value": 2}, task._resolve_cfg())
+
+    def test_resolve_object_name_fn(self):
+        t = PretenseTask()
+        config = resolve_config_from_spec(None, t)
+
+    def test_resolve_object_name_class(self):
+        config = resolve_config_from_spec(None, wrapped_task)
 
 
 class TestFetchArgs(unittest.TestCase):
@@ -66,7 +97,7 @@ class TestResolveArtifact(unittest.TestCase):
         artifact = resolve_artifact_from_spec(spec)
 
         self.assertIsInstance(artifact, get_default_artifact_cls())
-        self.assertEquals(artifact.name, spec)
+        self.assertEqual(artifact.name, spec)
 
     def test_str_template(self):
         name = "toto"
@@ -74,7 +105,7 @@ class TestResolveArtifact(unittest.TestCase):
 
         artifact = resolve_artifact_from_spec(spec, name=name)
 
-        self.assertEquals(spec.format(name=name), artifact.name)
+        self.assertEqual(spec.format(name=name), artifact.name)
         self.assertIsInstance(artifact, get_default_artifact_cls())
 
     def test_callable(self):
@@ -83,7 +114,7 @@ class TestResolveArtifact(unittest.TestCase):
 
         artifact = resolve_artifact_from_spec(spec, "toto")
 
-        self.assertEquals("toto", artifact.name)
+        self.assertEqual("toto", artifact.name)
         self.assertIsInstance(artifact, PickleArtifact)
 
     def test_artifact(self):

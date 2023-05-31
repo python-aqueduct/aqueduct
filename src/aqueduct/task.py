@@ -26,32 +26,13 @@ import abc
 import inspect
 from typing import Any, Callable, Generic, TypeAlias, TypeVar, Union
 
+from .binding import Binding
+
 from .artifact import Artifact, get_default_artifact_cls
-from .config import get_config
+from .config import ConfigSpec, resolve_config_from_spec
 
 T = TypeVar("T")
 ArtifactSpec: TypeAlias = Artifact | str | Callable[..., Artifact] | None
-
-
-class Binding(Generic[T]):
-    """A work bundle that is the binding of a :class:`Task` to arguments.
-
-    This work bundle can then be offloaded to an external process to be actually
-    computed. Typically, Bindings are generated automatically and should only be created
-    by the Task class."""
-
-    def __init__(self, task: Task, fn: Callable[..., T], *args, **kwargs):
-        self.task = task
-        self.fn = fn
-        self.args = args
-        self.kwargs = kwargs
-
-    def compute(self) -> T:
-        return self.fn(*self.args, **self.kwargs)
-
-    def is_pure(self) -> bool:
-        return self.task.artifact == None
-
 
 RequirementSpec: TypeAlias = Union[
     tuple[Binding], list[Binding], dict[str, Binding], Binding, None
@@ -60,7 +41,7 @@ RequirementArg: TypeAlias = Union[Callable[..., RequirementSpec], RequirementSpe
 
 
 def fetch_args_from_config(
-    fn: Callable, args, kwargs, cfg: dict[str]
+    fn: Callable, args, kwargs, cfg: dict[str, Any]
 ) -> tuple[tuple[Any, ...], dict[str, Any]]:
     """Given a callable and a configuration dict, try and fetch argument values from
     the config dict if needed.
@@ -121,7 +102,7 @@ class Task(abc.ABC, Generic[T]):
         `**kwargs`. The Binding is a work bundle that can then be executed locally or
         sent to a computing backend.
         """
-        artifact = self.artifact()
+        artifact = self._resolve_artifact()
         if artifact and artifact.exists():
             """Exclude the dependencies from the graph to avoid computing them."""
             return Binding(self, artifact.load_from_store)
@@ -129,7 +110,7 @@ class Task(abc.ABC, Generic[T]):
         requirements = self.requirements()
 
         args, kwargs = fetch_args_from_config(
-            self.fn, args, kwargs, self._resolve_cfg()
+            self.run, args, kwargs, self._resolve_cfg()
         )
 
         if callable(requirements):
@@ -198,7 +179,7 @@ class Task(abc.ABC, Generic[T]):
 
         return None
 
-    def cfg(self) -> dict[str]:
+    def cfg(self) -> ConfigSpec:
         """Define the configuration of the Task. The behavior depends on the return
         type. The configuration is used to fetch default values for parameters that
         don't have any value defined.
@@ -210,23 +191,15 @@ class Task(abc.ABC, Generic[T]):
 
         Returns
             A configuration dictionary."""
-        return ""
+        return None
 
     def _resolve_cfg(self):
-        user_cfg = self.cfg()
-
-        if isinstance(user_cfg, dict):
-            return user_cfg
-        elif isinstance(user_cfg, str) and len(user_cfg) > 0:
-            global_cfg = get_config()
-            return global_cfg[user_cfg]
-        elif not user_cfg:
-            return {}
+        return resolve_config_from_spec(self.cfg(), self)
 
     def run_and_maybe_cache(self, *args, **kwargs) -> T:
         result = self.run(*args, **kwargs)
 
-        artifact = self.artifact()
+        artifact = self._resolve_artifact()
         if artifact:
             artifact.dump_to_store(result)
 
@@ -237,12 +210,20 @@ class Task(abc.ABC, Generic[T]):
         """Override this to define how to execute the Task."""
         raise NotImplementedError("Task must implement method `run`.")
 
+    def _fully_qualified_name(self) -> str:
+        module = inspect.getmodule(self)
+
+        if module is None:
+            raise RuntimeError("Could not recover module for Task.")
+
+        return module.__name__ + "." + self.__class__.__qualname__
+
 
 def task(
     *args,
     requirements: RequirementSpec = None,
-    artifact: Artifact | None = None,
-    cfg: str | dict[str] = None,
+    artifact: ArtifactSpec = None,
+    cfg: ConfigSpec = None,
 ):
     """Decorator to quickly create a `Task` from a function. Example::
 
@@ -287,21 +268,35 @@ def task(
         return wrapper
 
 
+def fullname(o) -> str:
+    """See https://stackoverflow.com/questions/2020014/get-fully-qualified-class-name-of-an-object-in-python."""
+
+    module = o.__module__
+    if module == "builtins":
+        return o.__qualname__  # avoid outputs like 'builtins.str'
+
+    if inspect.isfunction(o):
+        return module + "." + o.__qualname__
+    else:
+        name = o.__class__.__qualname__
+        return module + "." + name
+
+
 class WrappedTask(Task):
     def __init__(
         self,
         fn,
         requirements: RequirementSpec = None,
         artifact: ArtifactSpec = None,
-        cfg: str | dict[str] | None = None,
+        cfg: ConfigSpec = None,
     ):
-        self.fn = fn
+        self._fn = fn
         self._artifact = artifact
         self._requirements = requirements
         self._cfg = cfg
 
     def run(self, *args, **kwargs):
-        return self.fn(*args, **kwargs)
+        return self._fn(*args, **kwargs)
 
     def artifact(self):
         return self._artifact
@@ -311,3 +306,9 @@ class WrappedTask(Task):
 
     def cfg(self):
         return self._cfg
+
+    def _resolve_cfg(self):
+        return resolve_config_from_spec(self.cfg(), self._fn)
+
+    def _fully_qualified_name(self) -> str:
+        return fullname(self._fn)

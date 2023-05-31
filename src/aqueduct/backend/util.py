@@ -1,14 +1,13 @@
-from typing import Any, Callable, TypeAlias, TypeVar
+from typing import Any, Callable, TypeAlias, TypeVar, TYPE_CHECKING
 
-from ..task import Binding
+from ..binding import Binding
 
 T = TypeVar("T")
-U = TypeVar("U")
 
 BindingTreeNode: TypeAlias = Any
 
 
-def map_binding_tree(tree: BindingTreeNode, fn: Callable[[Binding], Any]) -> Any:
+def map_binding_tree(tree: BindingTreeNode, fn: Callable[["Binding"], Any]) -> Any:
     """Recursively explore data structures containing Bindings, and map all Bindings
     found using `fn`.
 

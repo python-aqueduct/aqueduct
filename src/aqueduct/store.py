@@ -69,4 +69,4 @@ def get_default_store() -> Store:
     if "aqueduct" in cfg and "default_store" in cfg["aqueduct"]:
         return hydra.utils.instantiate(cfg["aqueduct"]["default_store"])
     else:
-        return None
+        return LocalFilesystemStore()

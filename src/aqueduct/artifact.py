@@ -5,7 +5,7 @@ import abc
 import hydra
 import logging
 import pickle
-from typing import Any, BinaryIO, Generic, TypeVar
+from typing import Any, BinaryIO, Generic, TypeAlias, TypeVar
 
 import pandas as pd
 
@@ -16,17 +16,14 @@ _logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
-StoreSpec: TypeVar = Store | None
+StoreSpec: TypeAlias = Store | None
 
 
-def resolve_store_from_spec(spec: StoreSpec) -> Store | None:
+def resolve_store_from_spec(spec: StoreSpec) -> Store:
     if isinstance(spec, Store):
         return spec
-    elif spec is None:
-        # Try and use the default store, if its defined.
-        return get_default_store()
     else:
-        raise ValueError("Unable to interpret StoreSpec.")
+        return get_default_store()
 
 
 class Artifact(Generic[T], abc.ABC):
@@ -50,19 +47,22 @@ class Artifact(Generic[T], abc.ABC):
         raise NotImplementedError("Artifact must implement `dump` method.")
 
     def load_from_store(self):
-        stream = self.store.get_read_stream(self.name)
+        store = resolve_store_from_spec(self.store)
+        stream = store.get_read_stream(self.name)
         loaded_object = self.load(stream)
         stream.close()
 
         return loaded_object
 
     def dump_to_store(self, object_to_dump):
-        stream = self.store.get_write_stream(self.name)
+        store = resolve_store_from_spec(self.store)
+        stream = store.get_write_stream(self.name)
         self.dump(object_to_dump, stream)
         stream.close()
 
     def exists(self) -> bool:
-        return self.name in self.store
+        store = resolve_store_from_spec(self.store)
+        return self.name in store
 
     def _resolve_store(self):
         return resolve_store_from_spec(self.store)

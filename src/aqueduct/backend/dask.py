@@ -1,10 +1,12 @@
-from typing import Any, TypeVar
+from typing import Any, TypeVar, TYPE_CHECKING
 
 from dask.distributed import Client, Future, as_completed
 
-from ..task import Binding
 from .backend import Backend
 from .util import map_binding_tree
+
+if TYPE_CHECKING:
+    from ..binding import Binding
 
 T = TypeVar("T")
 
@@ -18,7 +20,7 @@ class DaskBackend(Backend):
     def __init__(self, client: Client):
         self.client = DaskClientProxy(client)
 
-    def run(self, binding: Binding) -> Any:
+    def run(self, binding: "Binding") -> Any:
         if not isinstance(binding, Binding):
             raise ValueError("Backend can only run Binding objects.")
 
@@ -41,33 +43,8 @@ class DaskClientProxy:
         return future
 
 
-def binding_tree_to_graph(input, client: DaskClientProxy):
-    if isinstance(input, list):
-        return [binding_tree_to_graph(x, client) for x in input]
-    elif isinstance(input, tuple):
-        return tuple_with_bindings_to_graph(input, client)
-    elif isinstance(input, dict):
-        return dict_with_bindings_to_graph(input, client)
-    elif isinstance(input, Binding):
-        return create_dask_graph(input, client)
-    else:
-        # By default, return the input itself. It will be passed as an immediate argument
-        # to the dask task.
-        return input
-
-
-def tuple_with_bindings_to_graph(input: tuple, client: DaskClientProxy) -> tuple:
-    return tuple([binding_tree_to_graph(x, client) for x in input])
-
-
-def dict_with_bindings_to_graph(
-    input: dict[T, Any], client: DaskClientProxy
-) -> dict[T, Any]:
-    return {k: binding_tree_to_graph(input[k], client) for k in input}
-
-
-def create_dask_graph(binding: Binding, client: DaskClientProxy) -> Future:
-    def binding_to_dask_future(binding: Binding) -> Future:
+def create_dask_graph(binding: "Binding", client: DaskClientProxy) -> Future:
+    def binding_to_dask_future(binding: "Binding") -> Future:
         new_args = map_binding_tree(binding.args, binding_to_dask_future)
         new_kwargs = map_binding_tree(binding.kwargs, binding_to_dask_future)
 

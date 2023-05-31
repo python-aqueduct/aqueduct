@@ -9,6 +9,7 @@ dependencies = [
     "dask",
     "distributed",
     "hydra-core",
+    "omegaconf",
 ]
 
 [project.optional-dependencies]
