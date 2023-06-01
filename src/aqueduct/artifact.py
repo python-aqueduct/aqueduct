@@ -32,7 +32,7 @@ class Artifact(Generic[T], abc.ABC):
 
     def __init__(self, name: str, store: StoreSpec = None):
         self._name = name
-        self.store = store
+        self.store = resolve_store_from_spec(store)
 
     @property
     def name(self):
@@ -48,19 +48,14 @@ class Artifact(Generic[T], abc.ABC):
 
     def load_from_store(self):
         _logger.info(f"Loading {self.name} from store.")
-
-        store = resolve_store_from_spec(self.store)
-        return store.load_binary(self.name, self.deserialize)
+        return self.store.load_binary(self.name, self.deserialize)
 
     def dump_to_store(self, object_to_dump):
         _logger.info(f"Saving {self.name} to store.")
-
-        store = resolve_store_from_spec(self.store)
-        store.dump_binary(self.name, object_to_dump, self.serialize)
+        self.store.dump_binary(self.name, object_to_dump, self.serialize)
 
     def exists(self) -> bool:
-        store = resolve_store_from_spec(self.store)
-        return self.name in store
+        return self.name in self.store
 
     def _resolve_store(self):
         return resolve_store_from_spec(self.store)

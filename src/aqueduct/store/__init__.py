@@ -19,6 +19,7 @@ from ..config import get_config
 
 def get_default_store() -> Store:
     cfg = get_config()
+
     if "aqueduct" in cfg and "store" in cfg["aqueduct"]:
         return hydra.utils.instantiate(cfg["aqueduct"]["store"])
     else:

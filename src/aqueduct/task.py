@@ -29,7 +29,7 @@ import inspect
 import logging
 
 from .binding import Binding
-
+from .config import set_config
 from .artifact import (
     Artifact,
     ArtifactSpec,
@@ -83,15 +83,17 @@ def fetch_args_from_config(
 class Task(abc.ABC, Generic[T]):
     """Base class for a Task. Subclass this to define your own task.
 
-    Alternatively, the `taskdef` decorator can be used to define simple tasks directly
+    Alternatively, the `task` decorator can be used to define simple tasks directly
     from a function. Class-based Tasks are necessary to define dynamic requirements and
     artifact."""
 
     def __call__(self, *args, **kwargs) -> Binding[T]:
-        """Returns:
-        A :class:`Binding` that associates the `run` method with arguments `*arg` and
-        `**kwargs`. The Binding is a work bundle that can then be executed locally or
-        sent to a computing backend.
+        """Build a binding and return it.
+
+        Returns:
+            A :class:`Binding` that associates the `run` method with arguments `*arg` and
+            `**kwargs`. The Binding is a work bundle that can then be executed locally or
+            sent to a computing backend.
         """
         requirements = self.requirements()
 
@@ -119,12 +121,15 @@ class Task(abc.ABC, Generic[T]):
     def _create_binding(self, *args, **kwargs):
         # Resolve artifact. If there is an artifact configure, use a runner function
         # that makes use of the cache.
+        config = self._resolve_cfg()
         artifact = self._resolve_artifact(*args, **kwargs)
         if artifact:
             """Exclude the dependencies from the graph to avoid computing them."""
-            return Binding(self, self._run_with_cache, artifact, *args, **kwargs)
+            return Binding(
+                self, self._run_with_cache, config, artifact, *args, **kwargs
+            )
         else:
-            return Binding(self, self.run, *args, **kwargs)
+            return Binding(self, self._set_config_and_run, config, *args, **kwargs)
 
     def artifact(self) -> ArtifactSpec:
         """Express wheter the output of `run` should be saved as an :class:`Artifact`.
@@ -195,7 +200,7 @@ class Task(abc.ABC, Generic[T]):
     def _resolve_cfg(self):
         return resolve_config_from_spec(self.cfg(), self)
 
-    def _run_with_cache(self, __artifact, *args, **kwargs) -> T:
+    def _run_with_cache(self, __config, __artifact, *args, **kwargs) -> T:
         """An artifact was detected. Check cache before running the function, and
         save result to cache after computation."""
 
@@ -205,11 +210,17 @@ class Task(abc.ABC, Generic[T]):
         if __artifact.exists():
             return __artifact.load_from_store()
 
-        result = self.run(*args, **kwargs)
+        result = self._set_config_and_run(__config, *args, **kwargs)
 
         __artifact.dump_to_store(result)
 
         return result
+
+    def _set_config_and_run(self, __config, *args, **kwargs):
+        """This function is possibly executed in a remote process, so it's important to
+        replicate the config we had on the host before anything."""
+        set_config(__config)
+        return self.run(*args, **kwargs)
 
     def run(self, *args, **kwargs) -> T:
         """Override this to define how to execute the Task."""
