@@ -25,6 +25,7 @@ class DaskBackend(Backend):
         self.client = DaskClientProxy(client)
 
     def run(self, binding: "Binding") -> Any:
+        _logger.info("Creating graph...")
         graph = create_dask_graph(binding, self.client)
 
         for _ in as_completed(self.client.futures, raise_errors=False):
@@ -34,6 +35,9 @@ class DaskBackend(Backend):
 
 
 class DaskClientProxy:
+    """Proxy to the Dask Client that remembers all the calls to submit and holds on to
+    the future they return."""
+
     def __init__(self, dask_client: Client):
         self.client = dask_client
         self.futures = []
@@ -52,7 +56,7 @@ def create_dask_graph(binding: "Binding", client: DaskClientProxy) -> Future:
         new_args = map_binding_tree(binding.args, binding_to_dask_future)
         new_kwargs = map_binding_tree(binding.kwargs, binding_to_dask_future)
 
-        print(new_kwargs)
+        _logger.debug(f"Submitting task {binding}")
         future = client.submit(binding.fn, *new_args, **new_kwargs)
 
         return future

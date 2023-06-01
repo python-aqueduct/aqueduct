@@ -6,7 +6,7 @@ import abc
 import inspect
 import logging
 import pickle
-from typing import Any, BinaryIO, Generic, TypeAlias, TypeVar, Callable
+from typing import Any, BinaryIO, Generic, TypeAlias, TypeVar, Callable, Type
 
 import pandas as pd
 
@@ -47,10 +47,14 @@ class Artifact(Generic[T], abc.ABC):
         raise NotImplementedError("Artifact must implement `dump` method.")
 
     def load_from_store(self):
+        _logger.info(f"Loading {self.name} from store.")
+
         store = resolve_store_from_spec(self.store)
         return store.load_binary(self.name, self.deserialize)
 
     def dump_to_store(self, object_to_dump):
+        _logger.info(f"Saving {self.name} to store.")
+
         store = resolve_store_from_spec(self.store)
         store.dump_binary(self.name, object_to_dump, self.serialize)
 
@@ -65,6 +69,13 @@ class Artifact(Generic[T], abc.ABC):
 ArtifactSpec: TypeAlias = Artifact | str | Callable[..., Artifact] | None
 
 
+def resolve_artifact_cls(signature: inspect.Signature) -> Type[Artifact]:
+    if signature.return_annotation == pd.DataFrame:
+        return ParquetArtifact
+    else:
+        return get_default_artifact_cls()
+
+
 def resolve_artifact_from_spec(
     spec: ArtifactSpec,
     signature: inspect.Signature,
@@ -74,7 +85,7 @@ def resolve_artifact_from_spec(
     if isinstance(spec, Artifact):
         return spec
     elif isinstance(spec, str):
-        artifact_cls = get_default_artifact_cls()
+        artifact_cls = resolve_artifact_cls(signature)
         bind = signature.bind_partial(*args, **kwargs)
         artifact_name = spec.format(**bind.arguments)
         return artifact_cls(artifact_name)

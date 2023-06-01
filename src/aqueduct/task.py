@@ -21,10 +21,12 @@ Examples:
             return"""
 
 from __future__ import annotations
+from typing import Any, Callable, Generic, TypeAlias, TypeVar, Union
+
 
 import abc
 import inspect
-from typing import Any, Callable, Generic, TypeAlias, TypeVar, Union
+import logging
 
 from .binding import Binding
 
@@ -34,6 +36,8 @@ from .artifact import (
     resolve_artifact_from_spec,
 )
 from .config import Config, ConfigSpec, resolve_config_from_spec
+
+_logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
@@ -94,11 +98,6 @@ class Task(abc.ABC, Generic[T]):
         # Modify args and kwargs to use values from config if they exist.
         args, kwargs = self._args_with_values_from_config(*args, **kwargs)
 
-        # Test bind the arguments to the inner function. If it doesn't work now, there's
-        # no point in creating the Binding, it will never be able ot call the function
-        # correctly.
-        _ = inspect.signature(self.run).bind(*args, **kwargs)
-
         if callable(requirements):
             requirements = requirements(*args, **kwargs)
 
@@ -123,7 +122,7 @@ class Task(abc.ABC, Generic[T]):
         artifact = self._resolve_artifact(*args, **kwargs)
         if artifact:
             """Exclude the dependencies from the graph to avoid computing them."""
-            return Binding(self, self._run_with_cache, *args, **kwargs)
+            return Binding(self, self._run_with_cache, artifact, *args, **kwargs)
         else:
             return Binding(self, self.run, *args, **kwargs)
 
@@ -141,8 +140,9 @@ class Task(abc.ABC, Generic[T]):
 
     def _resolve_artifact(self, *args, **kwargs) -> Artifact | None:
         signature = inspect.signature(self.run)
+        spec = self.artifact()
 
-        return resolve_artifact_from_spec(self.artifact(), signature, *args, **kwargs)
+        return resolve_artifact_from_spec(spec, signature, *args, **kwargs)
 
     def requirements(self) -> RequirementArg:
         """Describe the inputs required to run the Task. The inputs will be passed to
@@ -195,20 +195,19 @@ class Task(abc.ABC, Generic[T]):
     def _resolve_cfg(self):
         return resolve_config_from_spec(self.cfg(), self)
 
-    def _run_with_cache(self, *args, **kwargs) -> T:
+    def _run_with_cache(self, __artifact, *args, **kwargs) -> T:
         """An artifact was detected. Check cache before running the function, and
         save result to cache after computation."""
-        artifact = self._resolve_artifact(*args, **kwargs)
 
-        if artifact is None:
+        if __artifact is None:
             raise RuntimeError("No artifact specified while it was expected to be.")
 
-        if artifact.exists():
-            return artifact.load_from_store()
+        if __artifact.exists():
+            return __artifact.load_from_store()
 
         result = self.run(*args, **kwargs)
 
-        artifact.dump_to_store(result)
+        __artifact.dump_to_store(result)
 
         return result
 

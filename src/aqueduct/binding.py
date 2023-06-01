@@ -26,3 +26,6 @@ class Binding(Generic[T]):
 
     def is_pure(self) -> bool:
         return self.task.artifact == None
+
+    def __repr__(self):
+        return f"Binding({self.fn!s}, args: {self.args!s}, kwargs: {self.kwargs!s})"
