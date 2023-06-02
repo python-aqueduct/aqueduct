@@ -6,6 +6,7 @@ import hydra
 from typing import TypeAlias
 from .backend import Backend
 from ..config import get_aqueduct_config
+from .concurrent import ConcurrentBackend
 from .dask import DaskBackend
 from .immediate import ImmediateBackend
 
@@ -29,4 +30,4 @@ def get_default_backend() -> Backend:
     return resolve_backend_from_spec(None)
 
 
-__all__ = ["DaskBackend", "ImmediateBackend"]
+__all__ = ["ConcurrentBackend", "DaskBackend", "ImmediateBackend"]
