@@ -1,7 +1,10 @@
+import pickle
 import unittest
 
+from aqueduct.artifact import Artifact
 from aqueduct.binding import Binding
 from aqueduct.config import set_config
+from aqueduct.store import InMemoryStore
 from aqueduct.task import (
     fetch_args_from_config,
     WrappedTask,
@@ -135,6 +138,37 @@ class TestWrappedTask(unittest.TestCase):
 
 class TestBinding(unittest.TestCase):
     def test_fail_on_missing_args(self):
-        fetch_args_lambda = lambda: wrapped_task(2)
+        fetch_args_lambda = lambda: wrapped_task(2).compute()
 
         self.assertRaises(TypeError, fetch_args_lambda)
+
+
+
+store = InMemoryStore()
+
+class CrashingArtifact(Artifact):
+    def deserialize(self, stream):
+        raise RuntimeError("Custom deserializer should not use ")
+    
+    def serialize(self, object, stream):
+        return pickle.dump(object, stream)
+    
+def custom_deserializer(stream):
+    return pickle.load(stream)
+
+@task(artifact=CrashingArtifact(name='artifact_a', store=store))
+def task_a():
+    return {'a': 2}
+
+
+class TestCustomDeserializer(unittest.TestCase):
+    def test_custom_deserializer(self):
+        task_a_wo_custom_deserializer = task_a()
+        task_a_binding = task_a(deserializer=custom_deserializer)
+
+        result = task_a_wo_custom_deserializer.compute() # Run a first time. Should save to store.
+        self.assertRaises(RuntimeError, lambda: task_a_wo_custom_deserializer.compute())  # Should fail because no custom deserializer.
+
+        deserialized_result = task_a_binding.compute()
+
+        self.assertDictEqual(result, deserialized_result)

@@ -21,7 +21,7 @@ Examples:
             return"""
 
 from __future__ import annotations
-from typing import Any, Callable, Generic, TypeAlias, TypeVar, Union
+from typing import Any, Callable, Generic, TypeAlias, TypeVar, Union, BinaryIO
 
 
 import abc
@@ -87,8 +87,14 @@ class Task(abc.ABC, Generic[T]):
     from a function. Class-based Tasks are necessary to define dynamic requirements and
     artifact."""
 
-    def __call__(self, *args, **kwargs) -> Binding[T]:
+    def __call__(self, *args, deserializer: Callable[[BinaryIO], T]=None, **kwargs) -> Binding[T]:
         """Build a binding and return it.
+
+        Arguments:
+            deserializer: If specified, use this deserializer to load the value from cache, instead
+                of the default one.
+            *args: The args to be passed to the `run` method.
+            **kwargs: The kwargs to be passed to the `run` method.
 
         Returns:
             A :class:`Binding` that associates the `run` method with arguments `*arg` and
@@ -104,13 +110,13 @@ class Task(abc.ABC, Generic[T]):
             requirements = requirements(*args, **kwargs)
 
         if isinstance(requirements, Binding) or isinstance(requirements, list):
-            return self._create_binding(requirements, *args, **kwargs)
+            return self._create_binding(deserializer, requirements, *args, **kwargs)
         elif isinstance(requirements, dict):
-            return self._create_binding(*args, **requirements, **kwargs)
+            return self._create_binding(deserializer, *args, **requirements, **kwargs)
         elif isinstance(requirements, tuple):
-            return self._create_binding(*requirements, *args, **kwargs)
+            return self._create_binding(deserializer, *requirements, *args,  **kwargs)
         elif not requirements:
-            return self._create_binding(*args, **kwargs)
+            return self._create_binding(deserializer, *args, **kwargs)
         else:
             raise Exception("Unexpected case when building Binding.")
 
@@ -118,7 +124,7 @@ class Task(abc.ABC, Generic[T]):
         config = self._resolve_cfg()
         return fetch_args_from_config(self.run, args, kwargs, config)
 
-    def _create_binding(self, *args, **kwargs):
+    def _create_binding(self, __custom_deserializer, *args, **kwargs):
         # Resolve artifact. If there is an artifact configure, use a runner function
         # that makes use of the cache.
         config = self._resolve_cfg()
@@ -126,7 +132,7 @@ class Task(abc.ABC, Generic[T]):
         if artifact:
             """Exclude the dependencies from the graph to avoid computing them."""
             return Binding(
-                self, self._run_with_cache, config, artifact, *args, **kwargs
+                self, self._run_with_cache, config, artifact, __custom_deserializer, *args, **kwargs
             )
         else:
             return Binding(self, self._set_config_and_run, config, *args, **kwargs)
@@ -200,15 +206,14 @@ class Task(abc.ABC, Generic[T]):
     def _resolve_cfg(self):
         return resolve_config_from_spec(self.cfg(), self)
 
-    def _run_with_cache(self, __config, __artifact, *args, **kwargs) -> T:
+    def _run_with_cache(self, __config, __artifact, __custom_deserializer, *args, **kwargs) -> T:
         """An artifact was detected. Check cache before running the function, and
         save result to cache after computation."""
-
         if __artifact is None:
             raise RuntimeError("No artifact specified while it was expected to be.")
 
         if __artifact.exists():
-            return __artifact.load_from_store()
+            return __artifact.load_from_store(deserializer=__custom_deserializer)
 
         result = self._set_config_and_run(__config, *args, **kwargs)
 

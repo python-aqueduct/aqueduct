@@ -1,5 +1,5 @@
 from .binding import Binding
-from .artifact import Artifact
+from .artifact import Artifact, HTTPDownloadArtifact, XarrayArtifact
 from .backend import ImmediateBackend
 from .config import set_config
 from .store import LocalFilesystemStore
@@ -10,9 +10,11 @@ __all__ = [
     "Artifact",
     "Binding",
     "DaskBackend",
+    "HTTPDownloadArtifact",
     "ImmediateBackend",
     "LocalFilesystemStore",
     "Task",
     "task",
     "set_config",
+    "XarrayAartifact",
 ]

@@ -5,7 +5,7 @@ import unittest
 import unittest.mock
 
 from aqueduct.artifact import (
-    ParquetArtifact,
+    DataFrameArtifact,
     resolve_artifact_from_spec,
     Artifact,
     PickleArtifact,
@@ -13,11 +13,11 @@ from aqueduct.artifact import (
 from aqueduct.store import Store
 
 
-class TestParquetArtifact(unittest.TestCase):
+class TestDataFrameArtifact(unittest.TestCase):
     def setUp(self) -> None:
         self.name = "test_artifact.parquet"
         self.store: Store = unittest.mock.Mock()
-        self.artifact = ParquetArtifact(self.name, store=self.store)
+        self.artifact = DataFrameArtifact(self.name, store=self.store)
 
     def test_dump(self):
         stream = io.BytesIO()
