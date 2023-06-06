@@ -21,8 +21,8 @@ class DaskBackend(Backend):
     Arguments:
         client (`dask.Client`): Client pointing to the desired Dask cluster."""
 
-    def __init__(self, client: Client):
-        self.client = DaskClientProxy(client)
+    def __init__(self, cluster):
+        self.client = DaskClientProxy(Client(cluster))
 
     def run(self, binding: "Binding") -> Any:
         _logger.info("Creating graph...")

@@ -2,9 +2,9 @@ from typing import Any, BinaryIO, Callable
 
 import requests
 
-from .artifact import Artifact
+from .artifact import SideEffectArtifact
 
-class HTTPDownloadArtifact(Artifact):
+class HTTPDownloadArtifact(SideEffectArtifact):
     def deserialize(self, stream: BinaryIO) -> bytes:
         return stream.read()
     

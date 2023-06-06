@@ -154,11 +154,16 @@ class CrashingArtifact(Artifact):
         return pickle.dump(object, stream)
     
 def custom_deserializer(stream):
-    return pickle.load(stream)
+    o = pickle.load(stream)
+    return {**o, 'c': 4}
 
 @task(artifact=CrashingArtifact(name='artifact_a', store=store))
 def task_a():
-    return {'a': 2}
+    return {'a': 2, 'b': 3}
+
+@task(requirements=task_a(deserializer=custom_deserializer))
+def task_b(reqs):
+    return reqs['c']
 
 
 class TestCustomDeserializer(unittest.TestCase):
@@ -171,4 +176,10 @@ class TestCustomDeserializer(unittest.TestCase):
 
         deserialized_result = task_a_binding.compute()
 
-        self.assertDictEqual(result, deserialized_result)
+        self.assertDictContainsSubset(result, deserialized_result)
+
+    def test_deserializer_always_applied(self):
+        task_b_binding = task_b()
+        result = task_b_binding.compute()
+
+        self.assertEqual(result, 4)

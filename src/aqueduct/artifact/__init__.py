@@ -7,6 +7,7 @@ import logging
 from typing import TypeVar, Type
 
 import pandas as pd
+import requests
 import xarray as xr
 
 from .artifact import Artifact, ArtifactSpec
@@ -25,6 +26,8 @@ def resolve_artifact_cls(signature: inspect.Signature) -> Type[Artifact]:
         return DataFrameArtifact
     elif signature.return_annotation == xr.Dataset:
         return XarrayArtifact
+    elif signature.return_annotation == requests.Response:
+        return HTTPDownloadArtifact
     else:
         return PickleArtifact
 
@@ -43,7 +46,7 @@ def resolve_artifact_from_spec(
         artifact_name = spec.format(**bind.arguments)
         return artifact_cls(artifact_name)
     elif callable(spec):
-        return spec(*args, **kwargs)
+        return resolve_artifact_from_spec(spec(*args, **kwargs), signature, *args, **kwargs)
     elif spec is None:
         return None
     else:
