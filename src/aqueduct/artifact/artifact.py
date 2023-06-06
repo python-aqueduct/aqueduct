@@ -2,7 +2,6 @@ from typing import TypeVar, Generic, TypeAlias, Callable
 
 import abc
 import logging
-import pathlib
 
 from ..store.serialization import PathSerializer
 from ..store import StoreSpec, resolve_store_from_spec

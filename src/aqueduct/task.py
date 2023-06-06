@@ -124,6 +124,7 @@ class Task(abc.ABC, Generic[T]):
 
     def _args_with_values_from_config(self, *args, **kwargs):
         config = self._resolve_cfg()
+
         return fetch_args_from_config(self.run, args, kwargs, config)
 
     def _create_binding(self, __custom_deserializer, *args, **kwargs):
@@ -263,54 +264,6 @@ class Task(abc.ABC, Generic[T]):
     @property
     def always_load_from_disk(self):
         return False
-
-
-def task(
-    *args,
-    requirements: RequirementSpec = None,
-    artifact: ArtifactSpec = None,
-    cfg: ConfigSpec = None,
-):
-    """Decorator to quickly create a `Task` from a function. Example::
-
-        @task
-        def input_array():
-            return np.random.rand(100, 100)
-
-        @task(requirements={input_array: input_array()})
-        def add_value(some_param, input_array=None):
-            return input_array + value
-
-        with_10 = add_value(10).compute()
-
-    Note how we called add_value without providing `input_array`, because it was already
-    specified in the requirements.
-
-    Arguments:
-        requirements: Specify the requirements. The way the requirements are passed
-            to the function depends on the shape of the provided value. See the
-            :func:`Task.requirements` for more details.
-        artifact: Wether to store the function return value as an artifact on execution.
-            If `None`, do not store the return value. If an instance of `Artifact`,
-            store the return value on execution. If the artifact exists, the function
-            execution will be skipped and the artifact loaded from disk instead.
-
-    Returns:
-        A wrapper that bundles the input function inside a :class:`WrappedTask`
-        instance.
-    """
-
-    def wrapper(fn):
-        return WrappedTask(fn, requirements=requirements, artifact=artifact, cfg=cfg)
-
-    if args and len(args) == 1 and callable(args[0]):
-        # Decorator was called directly, as in @taskdef. That means the function to
-        # wrap is arg[0].
-        fn = args[0]
-        return wrapper(fn)
-    else:
-        # Decorator was called with parentheses, as in @taskdef()
-        return wrapper
 
 
 def fullname(o) -> str:
