@@ -31,7 +31,6 @@ def map_future_to_result(future):
 
 def task_to_future(task: Task[T], executor: Executor) -> Future[T]:
     mapper = TaskMapper(executor)
-
     mapped_requirements = map_task_tree(task.requirements(), mapper)
 
     wait(mapper.futures)
@@ -40,7 +39,12 @@ def task_to_future(task: Task[T], executor: Executor) -> Future[T]:
         mapped_requirements, Future, map_future_to_result
     )
 
-    return executor.submit(undill_and_run, cloudpickle.dumps(task), result_requirements)
+    if result_requirements is not None:
+        return executor.submit(
+            undill_and_run, cloudpickle.dumps(task), result_requirements
+        )
+    else:
+        return executor.submit(undill_and_run, cloudpickle.dumps(task))
 
 
 def undill_and_run(serialized_fn, *args, **kwargs):

@@ -1,8 +1,13 @@
 import unittest
 
-from aqueduct.backend import resolve_backend_from_spec, DaskBackend, ImmediateBackend
+from aqueduct.backend import (
+    resolve_backend_from_spec,
+    DaskBackend,
+    ImmediateBackend,
+    ConcurrentBackend,
+)
 from aqueduct.config import set_config
-from aqueduct.task import Task
+from aqueduct.task import PureTask
 
 
 class TestBackendResolution(unittest.TestCase):
@@ -27,7 +32,7 @@ class TestImmediateBackend(unittest.TestCase):
         self.backend = ImmediateBackend()
 
     def test_run_task(self):
-        class SimpleTask(Task):
+        class SimpleTask(PureTask):
             def run(self):
                 return 2
 
@@ -36,7 +41,27 @@ class TestImmediateBackend(unittest.TestCase):
         backend = self.backend
         self.assertEqual(backend.run(t), 2)
 
+    def test_run_dep(self):
+        class TaskA(PureTask):
+            def run(self):
+                return 2
+
+        class TaskB(PureTask):
+            def run(self, reqs):
+                return reqs * 2
+
+            def requirements(self):
+                return TaskA()
+
+        t = TaskB()
+        self.assertEqual(self.backend.run(t), 4)
+
 
 class TestDaskBackend(TestImmediateBackend):
     def setUp(self):
         self.backend = DaskBackend()
+
+
+class TestConcurrentBackend(TestImmediateBackend):
+    def setUp(self):
+        self.backend = ConcurrentBackend()

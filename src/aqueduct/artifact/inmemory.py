@@ -1,10 +1,10 @@
-from typing import Any, Mapping
+from typing import Any, MutableMapping
 
 from .artifact import Artifact
 
 
 class InMemoryArtifact(Artifact):
-    def __init__(self, key: str, store: Mapping[str, Any]):
+    def __init__(self, key: str, store: MutableMapping[str, Any]):
         self.store = store
         self.key = key
 

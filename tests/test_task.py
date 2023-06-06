@@ -1,17 +1,17 @@
 import unittest
 
 from aqueduct.artifact import ArtifactSpec, InMemoryArtifact
-from aqueduct.config import set_config
+from aqueduct.config import set_config, resolve_config_from_spec
 from aqueduct.task import (
     fetch_args_from_config,
-    resolve_config_from_spec,
-    Task,
+    IOTask,
+    PureTask,
 )
 
 
 class TestCompute(unittest.TestCase):
     def test_simple_task(self):
-        class SimpleTask(Task):
+        class SimpleTask(PureTask):
             def configure(self, value):
                 self.value = value
 
@@ -22,7 +22,7 @@ class TestCompute(unittest.TestCase):
         self.assertEqual(2, t.compute())
 
 
-class PretenseTask(Task):
+class PretenseTask(PureTask):
     def configure(self, a, b, c=12):
         self.a = a
         self.b = b
@@ -43,7 +43,7 @@ class TestResolveConfig(unittest.TestCase):
         pass
 
     def test_resolve_dict(self):
-        class LocalTask(Task):
+        class LocalTask(PureTask):
             def cfg(self):
                 return {}
 
@@ -57,7 +57,7 @@ class TestResolveConfig(unittest.TestCase):
         cfg = {"section": {"value": 2}}
         set_config(cfg)
 
-        class LocalTask(Task):
+        class LocalTask(PureTask):
             def run(self):
                 pass
 
@@ -113,7 +113,7 @@ class TestFetchArgsOnCall(unittest.TestCase):
 store = {}
 
 
-class StoringTask(Task):
+class StoringTask(IOTask):
     def configure(self, should_succeed=True):
         self.succeed = should_succeed
 

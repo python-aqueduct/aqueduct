@@ -28,13 +28,15 @@ import abc
 import inspect
 import logging
 
-from .config import set_config, get_deep_key, get_config
-from .artifact import (
+from aqueduct.artifact import ArtifactSpec
+
+from ..config import get_deep_key, get_config
+from ..artifact import (
     Artifact,
     ArtifactSpec,
     resolve_artifact_from_spec,
 )
-from .config import Config, ConfigSpec, resolve_config_from_spec
+from ..config import Config, ConfigSpec, resolve_config_from_spec
 
 
 _logger = logging.getLogger(__name__)
@@ -95,16 +97,12 @@ class Task(abc.ABC, Generic[T]):
 
         self.configure(*new_args, **new_kwargs)
 
-    def __call__(self, *args, **kwargs) -> T:
-        result = self.run(*args, **kwargs)
+    def __call__(self, *args, **kwargs) -> None:
+        raise NotImplementedError(
+            "__call__ not implemented for Task. Did you mean to use IOTask or PureTask as a parent class?"
+        )
 
-        global_config = get_config()
-        artifact = self._resolve_artifact()
-
-        if artifact and get_deep_key(global_config, "aqueduct.check_storage", False):
-            if not artifact.exists():
-                raise KeyError(f"Task did not store artifact it promised: {artifact}")
-
+    def call_after(self, result):
         return result
 
     @abc.abstractmethod
@@ -164,10 +162,33 @@ class Task(abc.ABC, Generic[T]):
         return module.__name__ + "." + self.__class__.__qualname__
 
     def compute(self) -> T:
-        from .backend import ImmediateBackend
+        from ..backend import ImmediateBackend
 
         immediate_backend = ImmediateBackend()
         return immediate_backend.run(self)
+
+
+class IOTask(Task):
+    def __call__(self, *args, **kwargs) -> Artifact:
+        global_config = get_config()
+        artifact = self._resolve_artifact()
+
+        if not artifact or not artifact.exists():
+            self.run(*args, **kwargs)
+
+        if artifact and get_deep_key(global_config, "aqueduct.check_storage", False):
+            if not artifact.exists():
+                raise KeyError(f"Task did not store artifact it promised: {artifact}")
+
+        return artifact
+
+    def _resolve_artifact(self) -> Artifact:
+        artifact = super()._resolve_artifact()
+
+        if artifact is None:
+            raise NotImplementedError("IOTask must implement artifact method.")
+
+        return artifact
 
 
 def fullname(o) -> str:

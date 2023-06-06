@@ -1,16 +1,15 @@
-from .artifact import Artifact
+from .artifact import Artifact, LocalFilesystemArtifact
 from .backend import ImmediateBackend
 from .config import set_config
-from .store import LocalFilesystemStore, get_default_store
-from .task import Task
+from .task import IOTask, PureTask
 from .backend.dask import DaskBackend
 
 __all__ = [
     "Artifact",
     "DaskBackend",
-    "get_default_store",
     "ImmediateBackend",
-    "LocalFilesystemStore",
-    "Task",
+    "LocalFilesystemArtifact",
+    "IOTask",
+    "PureTask",
     "set_config",
 ]

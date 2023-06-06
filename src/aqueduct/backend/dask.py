@@ -1,4 +1,4 @@
-from typing import Any, TypeVar, TYPE_CHECKING, cast
+from typing import Any, TypeVar, cast
 
 import logging
 
