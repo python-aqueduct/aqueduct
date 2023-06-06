@@ -121,7 +121,7 @@ class StoringTask(Task):
         if self.succeed:
             store["testkey"] = 1
 
-    def artifact(self) -> ArtifactSpec:
+    def artifact(self):
         return InMemoryArtifact("testkey", store)
 
 

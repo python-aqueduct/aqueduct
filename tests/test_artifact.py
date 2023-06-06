@@ -1,3 +1,5 @@
+from typing import cast
+
 import unittest
 
 from aqueduct.artifact import (
@@ -9,7 +11,7 @@ from aqueduct.artifact import (
 class TestResolveArtifact(unittest.TestCase):
     def test_str(self):
         spec = "artifact.pkl"
-        artifact = resolve_artifact_from_spec(spec)
+        artifact = cast(LocalFilesystemArtifact, resolve_artifact_from_spec(spec))
 
         self.assertIsInstance(artifact, LocalFilesystemArtifact)
         self.assertEqual(str(artifact.path), spec)

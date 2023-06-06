@@ -1,4 +1,4 @@
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import Any, TypeVar, TYPE_CHECKING, cast
 
 import logging
 
@@ -20,17 +20,17 @@ class DaskBackend(Backend):
     Arguments:
         client (`dask.Client`): Client pointing to the desired Dask cluster."""
 
-    def __init__(self, cluster):
-        self.client = DaskClientProxy(Client(cluster))
+    def __init__(self, cluster=None):
+        self.client = DaskClientProxy(Client(address=cluster))
 
-    def run(self, task: Task[T]) -> Any:
+    def run(self, task: Task[T]) -> T:
         _logger.info("Creating graph...")
         graph = create_dask_graph(task, self.client)
 
         for _ in as_completed(self.client.futures, raise_errors=False):
             print("Task completed.")
 
-        return graph.result()
+        return cast(T, graph.result())
 
 
 class DaskClientProxy:
@@ -52,11 +52,13 @@ class DaskClientProxy:
 
 def create_dask_graph(task: Task, client: DaskClientProxy) -> Future:
     def task_to_dask_future(task: Task) -> Future:
-        requirements = map_task_tree(task.requirements())
-        new_args = map_task_tree(requirements, task_to_dask_future)
+        requirements = task.requirements()
 
-        _logger.debug(f"Submitting task {task}")
-        future = client.submit(task, requirements)
+        if requirements is not None:
+            requirements_futures = map_task_tree(requirements, task_to_dask_future)
+            future = client.submit(task, requirements_futures)
+        else:
+            future = client.submit(task)
 
         return future
 

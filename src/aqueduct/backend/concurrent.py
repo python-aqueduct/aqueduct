@@ -29,7 +29,7 @@ def map_future_to_result(future):
     return future.result()
 
 
-def task_to_future(task: Task[T], executor: Executor) -> Future:
+def task_to_future(task: Task[T], executor: Executor) -> Future[T]:
     mapper = TaskMapper(executor)
 
     mapped_requirements = map_task_tree(task.requirements(), mapper)

@@ -13,5 +13,4 @@ __all__ = [
     "LocalFilesystemStore",
     "Task",
     "set_config",
-    "XarrayAartifact",
 ]
