@@ -1,14 +1,14 @@
-from typing import Any, Callable, TypeVar, Mapping, Type
+from typing import Any, Callable, Type, TypeVar
 
 import abc
 import inspect
-import pandas as pd
-import xarray as xr
 import pathlib
 import pickle
 
-from ..artifact import Artifact, LocalFilesystemArtifact, InMemoryArtifact
-from ..config import get_deep_key, get_config
+import pandas as pd
+import xarray as xr
+
+from ..artifact import Artifact, InMemoryArtifact, LocalFilesystemArtifact
 from .task import Task
 
 T = TypeVar("T")
