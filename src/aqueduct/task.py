@@ -87,8 +87,31 @@ class Task(abc.ABC, Generic[T]):
     from a function. Class-based Tasks are necessary to define dynamic requirements and
     artifact."""
 
-    @abc.abstractmethod
+    def __init__(self, *args, **kwargs):
+        config = self._resolve_cfg()
+        new_args, new_kwargs = fetch_args_from_config(
+            self.configure, args, kwargs, config
+        )
+
+        self.configure(*new_args, **new_kwargs)
+
     def __call__(self, *args, **kwargs) -> T:
+        result = self.run(*args, **kwargs)
+
+        global_config = get_config()
+        artifact = self._resolve_artifact()
+
+        if artifact and get_deep_key(global_config, "aqueduct.check_storage", False):
+            if not artifact.exists():
+                raise KeyError(f"Task did not store artifact it promised: {artifact}")
+
+        return result
+
+    @abc.abstractmethod
+    def run(self, *args, **kwargs) -> T:
+        raise NotImplementedError()
+
+    def configure(self, *args, **kwargs):
         pass
 
     def _args_with_values_from_config(self, *args, **kwargs):
@@ -131,20 +154,6 @@ class Task(abc.ABC, Generic[T]):
 
     def _resolve_cfg(self):
         return resolve_config_from_spec(self.cfg(), self)
-
-    def _set_config_and_run(self, __config, *args, **kwargs):
-        """This function is possibly executed in a remote process, so it's important to
-        replicate the config we had on the host before anything."""
-        set_config(__config)
-        result = self.run(*args, **kwargs)
-
-        artifact = self._resolve_artifact()
-
-        if artifact and get_deep_key(__config, "aqueduct.check_storage", False):
-            if not artifact.exists():
-                raise KeyError(f"Task did not store artifact it promised: {artifact}")
-
-        return result
 
     def _fully_qualified_name(self) -> str:
         module = inspect.getmodule(self)

@@ -12,10 +12,10 @@ from aqueduct.task import (
 class TestCompute(unittest.TestCase):
     def test_simple_task(self):
         class SimpleTask(Task):
-            def __init__(self, value):
+            def configure(self, value):
                 self.value = value
 
-            def __call__(self):
+            def run(self):
                 return self.value
 
         t = SimpleTask(2)
@@ -23,12 +23,12 @@ class TestCompute(unittest.TestCase):
 
 
 class PretenseTask(Task):
-    def __init__(self, a, b, c=12):
+    def configure(self, a, b, c=12):
         self.a = a
         self.b = b
         self.c = c
 
-    def __call__(self):
+    def run(self):
         return self.a + self.b + self.c
 
 
@@ -47,7 +47,7 @@ class TestResolveConfig(unittest.TestCase):
             def cfg(self):
                 return {}
 
-            def __call__(self):
+            def run(self):
                 pass
 
         task = LocalTask()
@@ -58,7 +58,7 @@ class TestResolveConfig(unittest.TestCase):
         set_config(cfg)
 
         class LocalTask(Task):
-            def __call__(self):
+            def run(self):
                 pass
 
             def cfg(self):
@@ -114,10 +114,10 @@ store = {}
 
 
 class StoringTask(Task):
-    def __init__(self, should_succeed=True):
+    def configure(self, should_succeed=True):
         self.succeed = should_succeed
 
-    def __call__(self):
+    def run(self):
         if self.succeed:
             store["testkey"] = 1
 
