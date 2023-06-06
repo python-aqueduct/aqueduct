@@ -1,14 +1,10 @@
-import pickle
 import unittest
+from aqueduct.artifact import ArtifactSpec
 
-from aqueduct.artifact import Artifact, ArtifactSpec
 from aqueduct.binding import Binding
 from aqueduct.config import set_config
-from aqueduct.store import InMemoryStore
 from aqueduct.task import (
-    RequirementArg,
     fetch_args_from_config,
-    WrappedTask,
     resolve_config_from_spec,
     Task,
 )
@@ -37,16 +33,28 @@ class TestResolveConfig(unittest.TestCase):
         pass
 
     def test_resolve_dict(self):
-        cfg = {}
-        task = WrappedTask(lambda x: x, cfg=cfg)
+        class LocalTask(Task):
+            def cfg(self):
+                return {}
 
-        self.assertDictEqual(cfg, task._resolve_cfg())
+            def run(self):
+                pass
+
+        task = LocalTask()
+        self.assertDictEqual(task.cfg(), task._resolve_cfg())
 
     def test_resolve_str(self):
         cfg = {"section": {"value": 2}}
         set_config(cfg)
 
-        task = WrappedTask(lambda x: x, cfg="section")
+        class LocalTask(Task):
+            def run(self):
+                pass
+
+            def cfg(self):
+                return "section"
+
+        task = LocalTask()
 
         self.assertDictEqual({"value": 2}, task._resolve_cfg())
 
@@ -93,21 +101,17 @@ class TestFetchArgsOnCall(unittest.TestCase):
         self.assertEqual(17, binding.compute())
 
 
-class TestWrappedTask(unittest.TestCase):
-    def test_simple(self):
-        def sample_fn(a, b):
-            return a + b
-
-        t = WrappedTask(sample_fn)
-        binding = t(2, 2)
-
-        self.assertIsInstance(binding, Binding)
-        self.assertEqual(4, binding.compute())
-
-
 class TestBinding(unittest.TestCase):
     def test_fail_on_missing_args(self):
         task = PretenseTask()
         fetch_args_lambda = lambda: task(2).compute()
 
         self.assertRaises(TypeError, fetch_args_lambda)
+
+
+class StoringTask(Task):
+    def run(self):
+        pass
+
+    def artifact(self) -> ArtifactSpec:
+        return

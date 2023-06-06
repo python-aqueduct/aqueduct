@@ -1,5 +1,5 @@
 from .binding import Binding
-from .artifact import Artifact, HTTPDownloadArtifact
+from .artifact import Artifact
 from .backend import ImmediateBackend
 from .config import set_config
 from .store import LocalFilesystemStore, get_default_store
@@ -11,7 +11,6 @@ __all__ = [
     "Binding",
     "DaskBackend",
     "get_default_store",
-    "HTTPDownloadArtifact",
     "ImmediateBackend",
     "LocalFilesystemStore",
     "Task",

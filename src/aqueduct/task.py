@@ -87,9 +87,7 @@ class Task(abc.ABC, Generic[T]):
     from a function. Class-based Tasks are necessary to define dynamic requirements and
     artifact."""
 
-    def __call__(
-        self, *args, deserializer: Callable[[BinaryIO], T] = None, **kwargs
-    ) -> Binding[T]:
+    def __call__(self, *args, **kwargs) -> Binding[T]:
         """Build a binding and return it.
 
         Arguments:
@@ -112,13 +110,13 @@ class Task(abc.ABC, Generic[T]):
             requirements = requirements(*args, **kwargs)
 
         if isinstance(requirements, Binding) or isinstance(requirements, list):
-            return self._create_binding(deserializer, requirements, *args, **kwargs)
+            return self._create_binding(requirements, *args, **kwargs)
         elif isinstance(requirements, dict):
-            return self._create_binding(deserializer, *args, **requirements, **kwargs)
+            return self._create_binding(*args, **requirements, **kwargs)
         elif isinstance(requirements, tuple):
-            return self._create_binding(deserializer, *requirements, *args, **kwargs)
+            return self._create_binding(*requirements, *args, **kwargs)
         elif not requirements:
-            return self._create_binding(deserializer, *args, **kwargs)
+            return self._create_binding(*args, **kwargs)
         else:
             raise Exception("Unexpected case when building Binding.")
 
@@ -127,11 +125,11 @@ class Task(abc.ABC, Generic[T]):
 
         return fetch_args_from_config(self.run, args, kwargs, config)
 
-    def _create_binding(self, __custom_deserializer, *args, **kwargs):
+    def _create_binding(self, *args, **kwargs):
         # Resolve artifact. If there is an artifact configure, use a runner function
         # that makes use of the cache.
         config = self._resolve_cfg()
-        artifact = self._resolve_artifact(*args, **kwargs)
+        artifact = self._resolve_artifact()
         if artifact:
             """Exclude the dependencies from the graph to avoid computing them."""
             return Binding(
@@ -139,7 +137,6 @@ class Task(abc.ABC, Generic[T]):
                 self._run_with_cache,
                 config,
                 artifact,
-                __custom_deserializer,
                 *args,
                 **kwargs,
             )
@@ -158,11 +155,9 @@ class Task(abc.ABC, Generic[T]):
             If an artifact should be created, return an :class:`Artifact` instance."""
         return None
 
-    def _resolve_artifact(self, *args, **kwargs) -> Artifact | None:
-        signature = inspect.signature(self.run)
+    def _resolve_artifact(self) -> Artifact | None:
         spec = self.artifact()
-
-        return resolve_artifact_from_spec(spec, signature, *args, **kwargs)
+        return resolve_artifact_from_spec(spec)
 
     def requirements(self) -> RequirementArg:
         """Describe the inputs required to run the Task. The inputs will be passed to
@@ -278,41 +273,3 @@ def fullname(o) -> str:
     else:
         name = o.__class__.__qualname__
         return module + "." + name
-
-
-class WrappedTask(Task[T]):
-    def __init__(
-        self,
-        fn: Callable[..., T],
-        requirements: RequirementSpec = None,
-        artifact: ArtifactSpec = None,
-        cfg: ConfigSpec = None,
-    ):
-        self._artifact = artifact
-        self._requirements = requirements
-        self._cfg = cfg
-
-        self._fn = fn
-        self.run = fn
-
-    def run(self, *args, **kwargs):
-        # This method is never called as is, it is replaced by the input fn in the
-        # constructor. We do this to preserve fn's signature. It may be possible to
-        # to this cleanly using functools.wraps, but since this is a method instead of
-        # a function I could not get it to work.
-        return self._fn(*args, **kwargs)
-
-    def artifact(self) -> ArtifactSpec:
-        return self._artifact
-
-    def requirements(self) -> RequirementSpec:
-        return self._requirements
-
-    def cfg(self) -> ConfigSpec:
-        return self._cfg
-
-    def _resolve_cfg(self) -> Config:
-        return resolve_config_from_spec(self.cfg(), self)
-
-    def _fully_qualified_name(self) -> str:
-        return fullname(self.run)
