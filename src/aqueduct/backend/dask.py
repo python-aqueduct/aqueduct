@@ -5,10 +5,9 @@ import logging
 from dask.distributed import Client, Future, as_completed
 
 from .backend import Backend
-from .util import map_binding_tree
+from ..task import Task
+from .util import map_task_tree
 
-if TYPE_CHECKING:
-    from ..binding import Binding
 
 T = TypeVar("T")
 
@@ -24,9 +23,9 @@ class DaskBackend(Backend):
     def __init__(self, cluster):
         self.client = DaskClientProxy(Client(cluster))
 
-    def run(self, binding: "Binding") -> Any:
+    def run(self, task: Task[T]) -> Any:
         _logger.info("Creating graph...")
-        graph = create_dask_graph(binding, self.client)
+        graph = create_dask_graph(task, self.client)
 
         for _ in as_completed(self.client.futures, raise_errors=False):
             print("Task completed.")
@@ -51,16 +50,16 @@ class DaskClientProxy:
         return future
 
 
-def create_dask_graph(binding: "Binding", client: DaskClientProxy) -> Future:
-    def binding_to_dask_future(binding: "Binding") -> Future:
-        new_args = map_binding_tree(binding.args, binding_to_dask_future)
-        new_kwargs = map_binding_tree(binding.kwargs, binding_to_dask_future)
+def create_dask_graph(task: Task, client: DaskClientProxy) -> Future:
+    def task_to_dask_future(task: Task) -> Future:
+        requirements = map_task_tree(task.requirements())
+        new_args = map_task_tree(requirements, task_to_dask_future)
 
-        _logger.debug(f"Submitting task {binding}")
-        future = client.submit(binding.fn, *new_args, **new_kwargs)
+        _logger.debug(f"Submitting task {task}")
+        future = client.submit(task, requirements)
 
         return future
 
-    future = binding_to_dask_future(binding)
+    future = task_to_dask_future(task)
 
     return future

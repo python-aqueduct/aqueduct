@@ -1,15 +1,13 @@
 import abc
-import hydra
-from typing import TypeVar, TYPE_CHECKING, TypeAlias
+from typing import TypeVar
 
-if TYPE_CHECKING:
-    from ..binding import Binding
+from ..task import Task
 
 T = TypeVar("T")
 
 
 class Backend(abc.ABC):
     @abc.abstractmethod
-    def run(self, task: "Binding[T]") -> T:
-        """Execute a :class:`Binding` using its arguments."""
+    def run(self, task: Task[T]) -> T:
+        """Execute a :class:`Task` by resolving all its requirements."""
         raise NotImplemented("Backend must implement run.")

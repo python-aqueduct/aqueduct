@@ -21,15 +21,14 @@ Examples:
             return"""
 
 from __future__ import annotations
-from typing import Any, Callable, Generic, TypeAlias, TypeVar, Union, BinaryIO, Mapping
+from typing import Any, Callable, Generic, TypeAlias, TypeVar, Union
 
 
 import abc
 import inspect
 import logging
 
-from .binding import Binding
-from .config import set_config
+from .config import set_config, get_deep_key, get_config
 from .artifact import (
     Artifact,
     ArtifactSpec,
@@ -37,12 +36,13 @@ from .artifact import (
 )
 from .config import Config, ConfigSpec, resolve_config_from_spec
 
+
 _logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
 RequirementSpec: TypeAlias = Union[
-    tuple[Binding], list[Binding], dict[str, Binding], Binding, None
+    tuple["Task"], list["Task"], dict[str, "Task"], "Task", None
 ]
 RequirementArg: TypeAlias = Union[Callable[..., RequirementSpec], RequirementSpec]
 
@@ -87,61 +87,14 @@ class Task(abc.ABC, Generic[T]):
     from a function. Class-based Tasks are necessary to define dynamic requirements and
     artifact."""
 
-    def __call__(self, *args, **kwargs) -> Binding[T]:
-        """Build a binding and return it.
-
-        Arguments:
-            deserializer: If specified, use this deserializer to load the value from cache, instead
-                of the default one.
-            *args: The args to be passed to the `run` method.
-            **kwargs: The kwargs to be passed to the `run` method.
-
-        Returns:
-            A :class:`Binding` that associates the `run` method with arguments `*arg` and
-            `**kwargs`. The Binding is a work bundle that can then be executed locally or
-            sent to a computing backend.
-        """
-        requirements = self.requirements()
-
-        # Modify args and kwargs to use values from config if they exist.
-        args, kwargs = self._args_with_values_from_config(*args, **kwargs)
-
-        if callable(requirements):
-            requirements = requirements(*args, **kwargs)
-
-        if isinstance(requirements, Binding) or isinstance(requirements, list):
-            return self._create_binding(requirements, *args, **kwargs)
-        elif isinstance(requirements, dict):
-            return self._create_binding(*args, **requirements, **kwargs)
-        elif isinstance(requirements, tuple):
-            return self._create_binding(*requirements, *args, **kwargs)
-        elif not requirements:
-            return self._create_binding(*args, **kwargs)
-        else:
-            raise Exception("Unexpected case when building Binding.")
+    @abc.abstractmethod
+    def __call__(self, *args, **kwargs) -> T:
+        pass
 
     def _args_with_values_from_config(self, *args, **kwargs):
         config = self._resolve_cfg()
 
-        return fetch_args_from_config(self.run, args, kwargs, config)
-
-    def _create_binding(self, *args, **kwargs):
-        # Resolve artifact. If there is an artifact configure, use a runner function
-        # that makes use of the cache.
-        config = self._resolve_cfg()
-        artifact = self._resolve_artifact()
-        if artifact:
-            """Exclude the dependencies from the graph to avoid computing them."""
-            return Binding(
-                self,
-                self._run_with_cache,
-                config,
-                artifact,
-                *args,
-                **kwargs,
-            )
-        else:
-            return Binding(self, self._set_config_and_run, config, *args, **kwargs)
+        return fetch_args_from_config(self.__call__, args, kwargs, config)
 
     def artifact(self) -> ArtifactSpec:
         """Express wheter the output of `run` should be saved as an :class:`Artifact`.
@@ -160,37 +113,6 @@ class Task(abc.ABC, Generic[T]):
         return resolve_artifact_from_spec(spec)
 
     def requirements(self) -> RequirementArg:
-        """Describe the inputs required to run the Task. The inputs will be passed to
-        `run` on execution, according to the shape of the return value.
-
-        If the return value is a `Binding` or a `list`, `run` will be called with the
-        required value as its first argument. For instance, imagine we have::
-
-            task = MyTask()
-            binding = task(*args, **kwargs)
-            binding.compute()
-
-        The way `run` is called depends on the shape of the return value of
-        `requirements.` If the return value is a `list` or a `Binding`, then `run` is
-        called like this::
-
-            self.run(requirements, *args, **kwargs)
-
-        If the return value is a dictionary, `run` will be called with the values of the
-        dictionary as keyword arguments::
-
-            self.run(*args, **requirements, **kwargs)
-
-        If the return value is a tuple, `run` will be called with the requirements as
-        positional arguments::
-
-            self.run(*requirements, *args, **kwargs)
-
-        Returns:
-            `None` if there are no requirements. A data structure expressing the
-            requirements otherwise.
-        """
-
         return None
 
     def cfg(self) -> ConfigSpec:
@@ -210,43 +132,19 @@ class Task(abc.ABC, Generic[T]):
     def _resolve_cfg(self):
         return resolve_config_from_spec(self.cfg(), self)
 
-    def _run_with_cache(
-        self,
-        __config: Mapping[str, Any],
-        __artifact: Artifact,
-        __custom_deserializer: Callable[[BinaryIO], T] | None,
-        *args,
-        **kwargs,
-    ) -> T:
-        """An artifact was detected. Check cache before running the function, and
-        save result to cache after computation."""
-        if __artifact is None:
-            raise RuntimeError("No artifact specified while it was expected to be.")
-
-        if __artifact.exists():
-            return __artifact.load_from_store(deserializer=__custom_deserializer)
-
-        result = self._set_config_and_run(__config, *args, **kwargs)
-
-        __artifact.dump_to_store(result)
-
-        if __custom_deserializer or __artifact.always_load_from_cache:
-            # When a custom deserializer is specified, we should not pass the object directly,
-            # because the deserializer could apply weird logic that is only applicable if we
-            # read from stream.
-            return __artifact.load_from_store(deserializer=__custom_deserializer)
-        else:
-            return result
-
     def _set_config_and_run(self, __config, *args, **kwargs):
         """This function is possibly executed in a remote process, so it's important to
         replicate the config we had on the host before anything."""
         set_config(__config)
-        return self.run(*args, **kwargs)
+        result = self.run(*args, **kwargs)
 
-    def run(self, *args, **kwargs) -> T:
-        """Override this to define how to execute the Task."""
-        raise NotImplementedError("Task must implement method `run`.")
+        artifact = self._resolve_artifact()
+
+        if artifact and get_deep_key(__config, "aqueduct.check_storage", False):
+            if not artifact.exists():
+                raise KeyError(f"Task did not store artifact it promised: {artifact}")
+
+        return result
 
     def _fully_qualified_name(self) -> str:
         module = inspect.getmodule(self)
@@ -256,9 +154,11 @@ class Task(abc.ABC, Generic[T]):
 
         return module.__name__ + "." + self.__class__.__qualname__
 
-    @property
-    def always_load_from_disk(self):
-        return False
+    def compute(self) -> T:
+        from .backend import ImmediateBackend
+
+        immediate_backend = ImmediateBackend()
+        return immediate_backend.run(self)
 
 
 def fullname(o) -> str:

@@ -1,7 +1,6 @@
 import unittest
-from aqueduct.artifact import ArtifactSpec
 
-from aqueduct.binding import Binding
+from aqueduct.artifact import ArtifactSpec, InMemoryArtifact
 from aqueduct.config import set_config
 from aqueduct.task import (
     fetch_args_from_config,
@@ -10,21 +9,32 @@ from aqueduct.task import (
 )
 
 
+class TestCompute(unittest.TestCase):
+    def test_simple_task(self):
+        class SimpleTask(Task):
+            def __init__(self, value):
+                self.value = value
+
+            def __call__(self):
+                return self.value
+
+        t = SimpleTask(2)
+        self.assertEqual(2, t.compute())
+
+
 class PretenseTask(Task):
-    def run(self, a, b, c=12):
-        return a + b + c
+    def __init__(self, a, b, c=12):
+        self.a = a
+        self.b = b
+        self.c = c
 
-
-class TestSubclass(unittest.TestCase):
-    def test_subclass_call(self):
-        t = PretenseTask()
-        binding = t(1, 2, 3)
-        self.assertIsInstance(binding, Binding)
+    def __call__(self):
+        return self.a + self.b + self.c
 
 
 class TestFullyQualifiedName(unittest.TestCase):
     def test_fqn(self):
-        t = PretenseTask()
+        t = PretenseTask(1, 2, 3)
         self.assertEqual("tests.test_task.PretenseTask", t._fully_qualified_name())
 
 
@@ -37,7 +47,7 @@ class TestResolveConfig(unittest.TestCase):
             def cfg(self):
                 return {}
 
-            def run(self):
+            def __call__(self):
                 pass
 
         task = LocalTask()
@@ -48,7 +58,7 @@ class TestResolveConfig(unittest.TestCase):
         set_config(cfg)
 
         class LocalTask(Task):
-            def run(self):
+            def __call__(self):
                 pass
 
             def cfg(self):
@@ -97,21 +107,38 @@ class TestFetchArgsOnCall(unittest.TestCase):
         set_config({"tests": {"test_task": {"PretenseTask": inner_dict}}})
 
         t = PretenseTask()
-        binding = t()
-        self.assertEqual(17, binding.compute())
+        self.assertEqual(17, t.compute())
 
 
-class TestBinding(unittest.TestCase):
-    def test_fail_on_missing_args(self):
-        task = PretenseTask()
-        fetch_args_lambda = lambda: task(2).compute()
-
-        self.assertRaises(TypeError, fetch_args_lambda)
+store = {}
 
 
 class StoringTask(Task):
-    def run(self):
-        pass
+    def __init__(self, should_succeed=True):
+        self.succeed = should_succeed
+
+    def __call__(self):
+        if self.succeed:
+            store["testkey"] = 1
 
     def artifact(self) -> ArtifactSpec:
-        return
+        return InMemoryArtifact("testkey", store)
+
+
+class TestStorageCheck(unittest.TestCase):
+    def tearDown(self) -> None:
+        set_config({})
+
+    def test_storage_success(self):
+        set_config({"aqueduct": {"check_storage": True}})
+
+        t = StoringTask()
+        t.compute()
+
+        self.assertTrue(t.artifact().exists())
+
+    def test_storage_failure(self):
+        set_config({"aqueduct": {"check_storage": True}})
+        t = StoringTask(should_succeed=False)
+
+        self.assertRaises(KeyError, lambda: t.compute())

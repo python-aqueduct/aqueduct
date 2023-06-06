@@ -7,7 +7,9 @@ from typing import TypeVar
 
 
 from .artifact import Artifact, ArtifactSpec
+from .inmemory import InMemoryArtifact
 from .local import LocalFilesystemArtifact
+
 
 _logger = logging.getLogger(__name__)
 
@@ -25,4 +27,9 @@ def resolve_artifact_from_spec(
         raise RuntimeError(f"Could not resolve artifact spec: {spec}")
 
 
-__all__ = ["Artifact", "resolve_artifact_from_spec", "LocalFilesystemArtifact"]
+__all__ = [
+    "Artifact",
+    "resolve_artifact_from_spec",
+    "LocalFilesystemArtifact",
+    "InMemoryArtifact",
+]
