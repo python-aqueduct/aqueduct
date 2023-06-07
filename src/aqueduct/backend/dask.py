@@ -1,14 +1,14 @@
 from typing import Any, TypeVar, cast, Mapping
 
-import functools
 import logging
+import tqdm
 
 from dask.distributed import Client, Future, as_completed
 
 from ..config import set_config, get_config
 from .backend import Backend
 from ..task import Task
-from .util import map_task_tree
+from ..util import resolve_task_tree
 
 
 T = TypeVar("T")
@@ -22,15 +22,23 @@ class DaskBackend(Backend):
     Arguments:
         client (`dask.Client`): Client pointing to the desired Dask cluster."""
 
-    def __init__(self, cluster=None):
+    def __init__(self, cluster=None, jobs=None):
+        self.cluster = cluster
+        self.jobs = jobs
         self.client = DaskClientProxy(Client(address=cluster))
 
     def run(self, task: Task[T]) -> T:
+        if self.jobs:
+            _logger.info("Scaling cluster...")
+            self.cluster.scale(jobs=self.jobs)
+
         _logger.info("Creating graph...")
         graph = create_dask_graph(task, self.client)
 
-        for _ in as_completed(self.client.futures, raise_errors=False):
-            print("Task completed.")
+        for _ in tqdm.tqdm(
+            as_completed(self.client.futures, raise_errors=False), desc="Dask jobs"
+        ):
+            pass
 
         return cast(T, graph.result())
 
@@ -58,22 +66,18 @@ def wrap_task(cfg: Mapping[str, Any], task: Task, *args, **kwargs):
 
 
 def create_dask_graph(task: Task, client: DaskClientProxy) -> Future:
-    def task_to_dask_future(task: Task) -> Future:
+    def task_to_dask_future(task: Task, requirements=None) -> Future:
         cfg = get_config()
-        requirements = task.requirements()
-
-        functools.update_wrapper(wrap_task, task)
 
         if requirements is not None:
-            requirements_futures = map_task_tree(requirements, task_to_dask_future)
             future = client.submit(
-                wrap_task, cfg, task, requirements_futures, key=task._unique_key()
+                wrap_task, cfg, task, requirements, key=task._unique_key()
             )
         else:
             future = client.submit(wrap_task, cfg, task, key=task._unique_key())
 
         return future
 
-    future = task_to_dask_future(task)
+    future = resolve_task_tree(task, task_to_dask_future, use_cache=True)
 
     return future

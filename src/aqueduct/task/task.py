@@ -1,4 +1,13 @@
-from typing import Any, Callable, Generic, TypeVar, TypeAlias, Union
+from typing import (
+    Any,
+    Callable,
+    Generic,
+    TypeVar,
+    TypeAlias,
+    Union,
+    Optional,
+    TYPE_CHECKING,
+)
 
 import abc
 import dask
@@ -6,6 +15,9 @@ import inspect
 
 from ..artifact import Artifact, ArtifactSpec, resolve_artifact_from_spec
 from ..config import Config, ConfigSpec, resolve_config_from_spec
+
+if TYPE_CHECKING:
+    from ..util import TaskTree
 
 T = TypeVar("T")
 
@@ -97,7 +109,7 @@ class Task(abc.ABC, Generic[T]):
         spec = self.artifact()
         return resolve_artifact_from_spec(spec)
 
-    def requirements(self) -> RequirementArg:
+    def requirements(self) -> Optional["TaskTree"]:
         return None
 
     def cfg(self) -> ConfigSpec:

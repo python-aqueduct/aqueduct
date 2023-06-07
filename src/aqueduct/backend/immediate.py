@@ -2,7 +2,7 @@ from typing import TypeVar
 
 from .backend import Backend
 from ..task import Task
-from .util import map_task_tree
+from ..util import map_task_tree
 
 T = TypeVar("T")
 
