@@ -23,7 +23,7 @@ Examples:
 from __future__ import annotations
 from typing import Callable, TypeAlias, TypeVar, Union
 
-
+import abc
 import inspect
 import logging
 
@@ -37,7 +37,11 @@ _logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-class IOTask(Task):
+class IOTask(Task, abc.ABC):
+    @abc.abstractmethod
+    def run(self, *args, **kwargs) -> None:
+        raise NotImplementedError("Task must implement run method.")
+
     def __call__(self, *args, **kwargs) -> Artifact:
         global_config = get_config()
         artifact = self._resolve_artifact()

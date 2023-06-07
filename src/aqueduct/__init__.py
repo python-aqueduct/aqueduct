@@ -1,4 +1,4 @@
-from .artifact import Artifact, LocalFilesystemArtifact
+from .artifact import Artifact, LocalFilesystemArtifact, LocalStoreArtifact
 from .backend import ImmediateBackend
 from .config import set_config
 from .task import IOTask, PureTask
@@ -9,6 +9,7 @@ __all__ = [
     "DaskBackend",
     "ImmediateBackend",
     "LocalFilesystemArtifact",
+    "LocalStoreArtifact",
     "IOTask",
     "PureTask",
     "set_config",

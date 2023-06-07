@@ -1,9 +1,11 @@
-from typing import Any, TypeVar, cast
+from typing import Any, TypeVar, cast, Mapping
 
+import functools
 import logging
 
 from dask.distributed import Client, Future, as_completed
 
+from ..config import set_config, get_config
 from .backend import Backend
 from ..task import Task
 from .util import map_task_tree
@@ -50,15 +52,25 @@ class DaskClientProxy:
         return future
 
 
+def wrap_task(cfg: Mapping[str, Any], task: Task, *args, **kwargs):
+    set_config(cfg)
+    return task(*args, **kwargs)
+
+
 def create_dask_graph(task: Task, client: DaskClientProxy) -> Future:
     def task_to_dask_future(task: Task) -> Future:
+        cfg = get_config()
         requirements = task.requirements()
+
+        functools.update_wrapper(wrap_task, task)
 
         if requirements is not None:
             requirements_futures = map_task_tree(requirements, task_to_dask_future)
-            future = client.submit(task, requirements_futures)
+            future = client.submit(
+                wrap_task, cfg, task, requirements_futures, key=task._unique_key()
+            )
         else:
-            future = client.submit(task)
+            future = client.submit(wrap_task, cfg, task, key=task._unique_key())
 
         return future
 

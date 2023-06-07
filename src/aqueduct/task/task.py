@@ -1,6 +1,7 @@
 from typing import Any, Callable, Generic, TypeVar, TypeAlias, Union
 
 import abc
+import dask
 import inspect
 
 from ..artifact import Artifact, ArtifactSpec, resolve_artifact_from_spec
@@ -60,19 +61,17 @@ class Task(abc.ABC, Generic[T]):
             self.configure, args, kwargs, config
         )
 
+        self._args_hash = dask.base.tokenize(*args, **kwargs)
         self.configure(*new_args, **new_kwargs)
 
-    def __call__(self, *args, **kwargs) -> None:
+    @abc.abstractmethod
+    def __call__(self, *args, **kwargs):
         raise NotImplementedError(
             "__call__ not implemented for Task. Did you mean to use IOTask or PureTask as a parent class?"
         )
 
-    def call_after(self, result):
-        return result
-
-    @abc.abstractmethod
     def run(self, *args, **kwargs) -> T:
-        raise NotImplementedError()
+        pass
 
     def configure(self, *args, **kwargs):
         pass
@@ -125,6 +124,13 @@ class Task(abc.ABC, Generic[T]):
             raise RuntimeError("Could not recover module for Task.")
 
         return module.__name__ + "." + self.__class__.__qualname__
+
+    def _unique_key(self):
+        """If the key has a dash in the middle, Dask makes it pleasant to look at in
+        the dashboard."""
+        return "-".join(
+            [self.__class__.__qualname__, self._fully_qualified_name(), self._args_hash]
+        )
 
     def compute(self) -> T:
         from ..backend import ImmediateBackend
