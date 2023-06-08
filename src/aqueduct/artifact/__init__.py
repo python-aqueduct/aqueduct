@@ -7,6 +7,7 @@ from typing import TypeVar
 
 
 from .artifact import Artifact, ArtifactSpec
+from .composite import CompositeArtifact
 from .inmemory import InMemoryArtifact
 from .local import LocalFilesystemArtifact, LocalStoreArtifact
 

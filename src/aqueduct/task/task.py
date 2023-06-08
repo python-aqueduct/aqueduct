@@ -11,6 +11,7 @@ from typing import (
 
 import abc
 import dask
+import dask.base
 import inspect
 
 from ..artifact import Artifact, ArtifactSpec, resolve_artifact_from_spec
@@ -83,7 +84,7 @@ class Task(abc.ABC, Generic[T]):
         )
 
     def run(self, *args, **kwargs) -> T:
-        pass
+        raise NotImplementedError()
 
     def configure(self, *args, **kwargs):
         pass
@@ -108,6 +109,10 @@ class Task(abc.ABC, Generic[T]):
     def _resolve_artifact(self) -> Artifact | None:
         spec = self.artifact()
         return resolve_artifact_from_spec(spec)
+
+    def is_cached(self) -> bool:
+        artifact = self._resolve_artifact()
+        return artifact is not None and artifact.exists()
 
     def requirements(self) -> Optional["TaskTree"]:
         return None

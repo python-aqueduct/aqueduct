@@ -1,4 +1,4 @@
-from typing import Any, Callable, Mapping, TypeVar, Optional, TypeAlias, Union, Type
+from typing import Any, Callable, TypeVar, TypeAlias, Union, Type
 
 from .task import Task
 
@@ -65,14 +65,15 @@ def map_task_tree(tree: TypeTree[Task], fn: Callable[[Task], U]) -> TypeTree[U]:
     return map_type_in_tree(tree, Task, fn)
 
 
-def count_tasks(task: Task, remove_duplicates=True, use_cache=True):
+def count_tasks_to_run(task: Task, remove_duplicates=True, use_cache=True):
     tasks_by_type = {}
 
     def handle_one_task(task: Task, *args, **kwargs):
-        task_type = task.__class__.__qualname__
-        list_of_type = tasks_by_type.get(task_type, [])
-        list_of_type.append(task)
-        tasks_by_type[task_type] = list_of_type
+        if not task.is_cached():
+            task_type = task.__class__.__qualname__
+            list_of_type = tasks_by_type.get(task_type, [])
+            list_of_type.append(task)
+            tasks_by_type[task_type] = list_of_type
 
         return task
 
@@ -91,9 +92,13 @@ def count_tasks(task: Task, remove_duplicates=True, use_cache=True):
 
 def resolve_task_tree(
     task: Task,
-    fn: Callable[[Task], T] | Callable[[Task, Optional[TypeTree[T]]], T],
+    fn: Callable[..., T],
     use_cache=True,
 ) -> T:
+    """Apply function fn on all Task objects encountered while resolving the dependencies of `task`.
+    If a Task has a cached value, do not expand its requirements, and map it immediately. Otherwise,
+    map the task and provide its requirements are arguments."""
+
     def mapper(task: Task) -> T:
         artifact = task._resolve_artifact()
         requirements = task.requirements()
@@ -104,4 +109,4 @@ def resolve_task_tree(
             mapped_requirements = map_task_tree(requirements, mapper)
             return fn(task, mapped_requirements)
 
-    return map_task_tree(task, mapper)
+    return mapper(task)

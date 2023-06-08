@@ -4,7 +4,7 @@ if TYPE_CHECKING:
     from .task import Task
 
 
-config: dict[str, Any] = {}
+config: Mapping[str, Any] = {}
 
 
 def set_config(cfg):
@@ -12,7 +12,7 @@ def set_config(cfg):
     config = cfg
 
 
-def get_config():
+def get_config() -> Mapping[str, Any]:
     global config
     return config
 

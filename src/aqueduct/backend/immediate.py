@@ -2,17 +2,14 @@ from typing import TypeVar
 
 from .backend import Backend
 from ..task import Task
-from ..util import map_task_tree
+from ..util import resolve_task_tree
 
 T = TypeVar("T")
 
 
-def execute_task(task: Task[T]) -> T:
-    requirements = task.requirements()
-
-    if requirements is not None:
-        executed_requirements = map_task_tree(requirements, execute_task)
-        return task(executed_requirements)
+def execute_task(task: Task[T], requirements=None) -> T:
+    if requirements:
+        return task(requirements)
     else:
         return task()
 
@@ -25,4 +22,4 @@ class ImmediateBackend(Backend):
     parallelism, the :class:`DaskBackend` is probably more appropriate."""
 
     def run(self, task: Task[T]) -> T:
-        return map_task_tree(task, execute_task)
+        return resolve_task_tree(task, execute_task)

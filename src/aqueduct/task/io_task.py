@@ -21,7 +21,7 @@ Examples:
             return"""
 
 from __future__ import annotations
-from typing import Callable, TypeAlias, TypeVar, Union
+from typing import TypeVar
 
 import abc
 import inspect

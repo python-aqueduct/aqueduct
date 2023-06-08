@@ -1,17 +1,11 @@
-from typing import Any, TypeVar, Optional
-
-from concurrent.futures import Executor, ProcessPoolExecutor, Future, wait
+from concurrent.futures import Executor, Future, ProcessPoolExecutor, wait
+from typing import Optional, TypeVar
 
 import cloudpickle
 
-from .backend import Backend
 from ..task import Task
-from ..util import (
-    map_type_in_tree,
-    resolve_task_tree,
-    TypeTree,
-)
-
+from ..util import TypeTree, map_type_in_tree, resolve_task_tree
+from .backend import Backend
 
 T = TypeVar("T")
 

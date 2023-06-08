@@ -1,9 +1,10 @@
 from typing import Any, TypeVar, cast, Mapping
 
+import dask.distributed
 import logging
 import tqdm
 
-from dask.distributed import Client, Future, as_completed
+from dask.distributed import Client, Future, as_completed, SpecCluster
 
 from ..config import set_config, get_config
 from .backend import Backend
@@ -29,8 +30,9 @@ class DaskBackend(Backend):
 
     def run(self, task: Task[T]) -> T:
         if self.jobs:
+            cluster = cast(SpecCluster, self.cluster)
             _logger.info("Scaling cluster...")
-            self.cluster.scale(jobs=self.jobs)
+            cluster.scale(jobs=self.jobs)  # type: ignore
 
         _logger.info("Creating graph...")
         graph = create_dask_graph(task, self.client)
