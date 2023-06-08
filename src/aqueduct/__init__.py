@@ -8,7 +8,7 @@ from .backend import ImmediateBackend
 from .config import set_config, get_config
 from .task import IOTask, PureTask
 from .backend.dask import DaskBackend
-from .util import count_tasks_to_run
+from .util import count_tasks_to_run, tasks_in_module
 
 __all__ = [
     "Artifact",
@@ -16,6 +16,7 @@ __all__ = [
     "CompositeArtifact",
     "DaskBackend",
     "get_config",
+    "tasks_in_module",
     "ImmediateBackend",
     "LocalFilesystemArtifact",
     "LocalStoreArtifact",

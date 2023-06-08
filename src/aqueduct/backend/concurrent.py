@@ -1,5 +1,5 @@
 from concurrent.futures import Executor, Future, ProcessPoolExecutor, wait
-from typing import Optional, TypeVar
+from typing import Optional, TypeVar, Any
 
 import cloudpickle
 

@@ -1,15 +1,14 @@
-from typing import Generic, TypeVar
+from typing import TypeVar
 
 import unittest
 
 import aqueduct as aq
-from aqueduct.artifact import ArtifactSpec
 
 T = TypeVar("T")
 
 
 class TaskA(aq.PureTask):
-    def configure(self, a):
+    def __init__(self, a):
         self.a = a
 
     def run(self):
@@ -53,37 +52,44 @@ class TaskE(aq.PureTask):
 class TestCountTasks(unittest.TestCase):
     def test_count(self):
         t = TaskB()
-        count = aq.count_tasks(t)
+        count = aq.count_tasks_to_run(t)
 
         self.assertDictEqual(count, {"TaskA": 3, "TaskB": 1})
 
     def test_remove_duplicates(self):
         t = TaskC()
-        count = aq.count_tasks(t, remove_duplicates=True)
+        count = aq.count_tasks_to_run(t, remove_duplicates=True)
 
         self.assertDictEqual(count, {"TaskA": 1, "TaskC": 1})
 
     def test_keep_duplicates(self):
         t = TaskC()
-        count = aq.count_tasks(t, remove_duplicates=False)
+        count = aq.count_tasks_to_run(t, remove_duplicates=False)
 
         self.assertDictEqual(count, {"TaskA": 3, "TaskC": 1})
 
     def test_cached(self):
         t = TaskE()
 
-        count = aq.count_tasks(t, use_cache=True)
+        count = aq.count_tasks_to_run(t, use_cache=True)
 
-        self.assertEqual({"TaskE": 1, "TaskD": 1}, count)
+        self.assertEqual({"TaskE": 1}, count)
 
     def test_keep_cached(self):
         t = TaskE()
-        count = aq.count_tasks(t, use_cache=False)
+        count = aq.count_tasks_to_run(t, use_cache=False)
         self.assertEqual({"TaskA": 1, "TaskD": 1, "TaskE": 1}, count)
 
     def test_root_is_cached(self):
         t = TaskD()
 
-        count = aq.count_tasks(t, use_cache=True)
+        count = aq.count_tasks_to_run(t, use_cache=True)
 
-        self.assertEqual({"TaskD": 1}, count)
+        self.assertEqual({}, count)
+
+
+class TestFindTasks(unittest.TestCase):
+    def test_find_tasks_in_module(self):
+        tasks = aq.tasks_in_module(__name__)
+
+        self.assertSetEqual(tasks, set([TaskA, TaskB, TaskC, TaskD, TaskE]))

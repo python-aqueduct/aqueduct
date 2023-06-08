@@ -12,6 +12,10 @@ from ..artifact import Artifact, InMemoryArtifact, LocalFilesystemArtifact
 from .task import Task
 
 T = TypeVar("T")
+U = TypeVar("U")
+
+V = TypeVar("V")
+
 
 READER_OF_TYPE = {
     pd.DataFrame: pd.read_parquet,
@@ -113,7 +117,7 @@ def load_artifact_memory(artifact: InMemoryArtifact):
     return artifact.store[artifact.key]
 
 
-class PureTask(Task[T], abc.ABC):
+class PureTask(Task[T]):
     def __call__(self, *args, **kwargs) -> T:
         artifact = self._resolve_artifact()
 

@@ -3,16 +3,17 @@ import unittest
 from aqueduct.artifact import ArtifactSpec, InMemoryArtifact
 from aqueduct.config import set_config, resolve_config_from_spec
 from aqueduct.task import (
-    fetch_args_from_config,
     IOTask,
     PureTask,
 )
+
+from aqueduct.task.autoresolve import fetch_args_from_config
 
 
 class TestCompute(unittest.TestCase):
     def test_simple_task(self):
         class SimpleTask(PureTask):
-            def configure(self, value):
+            def __init__(self, value):
                 self.value = value
 
             def run(self):
@@ -23,7 +24,7 @@ class TestCompute(unittest.TestCase):
 
 
 class PretenseTask(PureTask):
-    def configure(self, a, b, c=12):
+    def __init__(self, a, b=None, c=12):
         self.a = a
         self.b = b
         self.c = c
@@ -51,28 +52,27 @@ class TestResolveConfig(unittest.TestCase):
                 pass
 
         task = LocalTask()
-        self.assertDictEqual(task.cfg(), task._resolve_cfg())
+        self.assertDictEqual(task.cfg(), task.config())
 
     def test_resolve_str(self):
         cfg = {"section": {"value": 2}}
         set_config(cfg)
 
         class LocalTask(PureTask):
+            CONFIG = "section"
+
             def run(self):
                 pass
 
-            def cfg(self):
-                return "section"
-
         task = LocalTask()
 
-        self.assertDictEqual({"value": 2}, task._resolve_cfg())
+        self.assertDictEqual({"value": 2}, task.config())
 
     def test_resolve_object_name_class(self):
         inner_dict = {"a": 1, "b": 2}
         set_config({"tests": {"test_task": {"PretenseTask": inner_dict}}})
 
-        t = PretenseTask()
+        t = PretenseTask(14)
         config = resolve_config_from_spec(None, t)
 
         self.assertDictEqual(config, inner_dict)
@@ -106,15 +106,15 @@ class TestFetchArgsOnCall(unittest.TestCase):
         inner_dict = {"a": 2, "b": 3}
         set_config({"tests": {"test_task": {"PretenseTask": inner_dict}}})
 
-        t = PretenseTask()
-        self.assertEqual(17, t.compute())
+        t = PretenseTask(3)
+        self.assertEqual(18, t.compute())
 
 
 store = {}
 
 
 class StoringTask(IOTask):
-    def configure(self, should_succeed=True):
+    def __init__(self, should_succeed=True):
         self.succeed = should_succeed
 
     def run(self):

@@ -4,7 +4,7 @@ import aqueduct as aq
 
 
 class StoringTask(aq.PureTask):
-    def configure(self, store):
+    def __init__(self, store):
         self.store = store
 
     def run(self):

@@ -24,12 +24,14 @@ from __future__ import annotations
 from typing import TypeVar
 
 import abc
+import forge
 import inspect
 import logging
 
 from ..config import get_deep_key, get_config
 from ..artifact import Artifact
 from .task import Task
+from .autoresolve import WrapInitMeta
 
 
 _logger = logging.getLogger(__name__)
@@ -37,8 +39,7 @@ _logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-class IOTask(Task, abc.ABC):
-    @abc.abstractmethod
+class IOTask(Task):
     def run(self, *args, **kwargs) -> None:
         raise NotImplementedError("Task must implement run method.")
 

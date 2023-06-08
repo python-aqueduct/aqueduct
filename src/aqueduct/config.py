@@ -1,4 +1,4 @@
-from typing import Any, Mapping, TypeAlias, TypeVar, TYPE_CHECKING
+from typing import Any, Mapping, TypeAlias, TypeVar, TYPE_CHECKING, Type
 
 if TYPE_CHECKING:
     from .task import Task
@@ -51,7 +51,9 @@ def get_deep_key(d: Config, deep_key: str, default=None) -> Any:
             raise e
 
 
-def resolve_config_from_spec(spec: ConfigSpec, calling_task: "Task") -> Config:
+def resolve_config_from_spec(
+    spec: ConfigSpec, calling_task: Type["Task"] | "Task"
+) -> Config:
     if isinstance(spec, dict):
         return spec
 

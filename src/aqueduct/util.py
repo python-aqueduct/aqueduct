@@ -1,4 +1,6 @@
-from typing import Any, Callable, TypeVar, TypeAlias, Union, Type
+import importlib
+import inspect
+from typing import Any, Callable, Optional, TypeVar, TypeAlias, Union, Type
 
 from .task import Task
 
@@ -69,7 +71,7 @@ def count_tasks_to_run(task: Task, remove_duplicates=True, use_cache=True):
     tasks_by_type = {}
 
     def handle_one_task(task: Task, *args, **kwargs):
-        if not task.is_cached():
+        if not use_cache or not task.is_cached():
             task_type = task.__class__.__qualname__
             list_of_type = tasks_by_type.get(task_type, [])
             list_of_type.append(task)
@@ -110,3 +112,16 @@ def resolve_task_tree(
             return fn(task, mapped_requirements)
 
     return mapper(task)
+
+
+def tasks_in_module(module_name: str, package: Optional[str] = None) -> set[Type[Task]]:
+    mod = importlib.import_module(module_name, package=package)
+    members = mod.__dict__
+
+    tasks = []
+    for k in members:
+        if inspect.isclass(members[k]) and issubclass(members[k], Task):
+            if inspect.getmodule(members[k]) == mod:
+                tasks.append(members[k])
+
+    return set(tasks)
