@@ -1,4 +1,0 @@
-.. _configuration:
-
-Getting Started
-===============

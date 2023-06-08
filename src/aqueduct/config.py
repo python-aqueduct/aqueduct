@@ -1,7 +1,7 @@
 from typing import Any, Mapping, TypeAlias, TypeVar, TYPE_CHECKING, Type
 
 if TYPE_CHECKING:
-    from .task import Task
+    from .task import AbstractTask
 
 
 config: Mapping[str, Any] = {}
@@ -52,7 +52,7 @@ def get_deep_key(d: Config, deep_key: str, default=None) -> Any:
 
 
 def resolve_config_from_spec(
-    spec: ConfigSpec, calling_task: Type["Task"] | "Task"
+    spec: ConfigSpec, calling_task: Type["AbstractTask"] | "AbstractTask"
 ) -> Config:
     if isinstance(spec, dict):
         return spec

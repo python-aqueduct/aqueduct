@@ -7,7 +7,7 @@ from aqueduct.backend import (
     ConcurrentBackend,
 )
 from aqueduct.config import set_config
-from aqueduct.task import PureTask
+from aqueduct.task import Task
 
 
 class TestBackendResolution(unittest.TestCase):
@@ -32,29 +32,29 @@ class TestImmediateBackend(unittest.TestCase):
         self.backend = ImmediateBackend()
 
     def test_run_task(self):
-        class SimpleTask(PureTask):
+        class SimpleTask(Task):
             def run(self):
                 return 2
 
         t = SimpleTask()
 
         backend = self.backend
-        self.assertEqual(backend.run(t), 2)
+        self.assertEqual(backend.execute(t), 2)
 
     def test_run_dep(self):
-        class TaskA(PureTask):
+        class TaskA(Task[int]):
             def run(self):
                 return 2
 
-        class TaskB(PureTask):
+        class TaskB(Task[int]):
             def run(self, reqs):
                 return reqs * 2
 
-            def requirements(self):
+            def requirements(self) -> TaskA:
                 return TaskA()
 
         t = TaskB()
-        self.assertEqual(self.backend.run(t), 4)
+        self.assertEqual(self.backend.execute(t), 4)
 
 
 class TestDaskBackend(TestImmediateBackend):

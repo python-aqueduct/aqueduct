@@ -3,7 +3,7 @@ from typing import Optional, TypeVar, Any
 
 import cloudpickle
 
-from ..task import Task
+from ..task import AbstractTask
 from ..util import TypeTree, map_type_in_tree, resolve_task_tree
 from .backend import Backend
 
@@ -20,9 +20,9 @@ def undill_and_run(serialized_fn, *args, **kwargs):
         raise
 
 
-def task_to_future_resolve(task: Task[T], executor: Executor) -> Future[T]:
+def task_to_future_resolve(task: AbstractTask[T], executor: Executor) -> Future[T]:
     def map_task_to_future(
-        task: Task[T], requirements: Optional[TypeTree[Future]] = None
+        task: AbstractTask[T], requirements: Optional[TypeTree[Future]] = None
     ) -> Future[T]:
         if requirements:
             requirement_futures = []
@@ -55,7 +55,7 @@ class ConcurrentBackend(Backend):
     def __init__(self, n_workers=1):
         self.n_workers = n_workers
 
-    def run(self, task: Task[T]) -> T:
+    def execute(self, task: AbstractTask[T]) -> T:
         with ProcessPoolExecutor(max_workers=self.n_workers) as executor:
             future = task_to_future_resolve(task, executor)
 

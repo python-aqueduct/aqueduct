@@ -3,7 +3,7 @@ import unittest
 import aqueduct as aq
 
 
-class StoringTask(aq.PureTask):
+class StoringTask(aq.Task):
     def __init__(self, store):
         self.store = store
 
@@ -20,7 +20,7 @@ class TestQuickTask(unittest.TestCase):
 
     def test_auto_cache(self):
         t = StoringTask(self.store)
-        result = t.compute()
+        result = t.result()
 
         self.assertIn("test", self.store)
         self.assertDictEqual(self.store["test"], result)

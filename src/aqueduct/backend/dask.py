@@ -8,7 +8,7 @@ from dask.distributed import Client, Future, as_completed, SpecCluster
 
 from ..config import set_config, get_config
 from .backend import Backend
-from ..task import Task
+from ..task import AbstractTask
 from ..util import resolve_task_tree
 
 
@@ -28,7 +28,7 @@ class DaskBackend(Backend):
         self.jobs = jobs
         self.client = DaskClientProxy(Client(address=cluster))
 
-    def run(self, task: Task[T]) -> T:
+    def execute(self, task: AbstractTask[T]) -> T:
         if self.jobs:
             cluster = cast(SpecCluster, self.cluster)
             _logger.info("Scaling cluster...")
@@ -62,13 +62,13 @@ class DaskClientProxy:
         return future
 
 
-def wrap_task(cfg: Mapping[str, Any], task: Task, *args, **kwargs):
+def wrap_task(cfg: Mapping[str, Any], task: AbstractTask, *args, **kwargs):
     set_config(cfg)
     return task(*args, **kwargs)
 
 
-def create_dask_graph(task: Task, client: DaskClientProxy) -> Future:
-    def task_to_dask_future(task: Task, requirements=None) -> Future:
+def create_dask_graph(task: AbstractTask, client: DaskClientProxy) -> Future:
+    def task_to_dask_future(task: AbstractTask, requirements=None) -> Future:
         cfg = get_config()
 
         if requirements is not None:

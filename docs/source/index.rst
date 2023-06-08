@@ -11,11 +11,12 @@ Welcome to Aqueduct's documentation!
    :maxdepth: 2
    :caption: Contents:
    
-   artifact
-   backend
-   store
-   task
-
+   getting_started
+   tasks
+   saving_results
+   computation
+   configuration
+   api/api
 
 
 Indices and tables

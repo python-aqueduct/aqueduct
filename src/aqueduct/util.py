@@ -2,9 +2,7 @@ import importlib
 import inspect
 from typing import Any, Callable, Optional, TypeVar, TypeAlias, Union, Type
 
-from .task import Task
-
-T = TypeVar("T")
+from .task import AbstractTask
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -13,7 +11,7 @@ TypeTree: TypeAlias = Union[
     list["TypeTree[T]"], tuple["TypeTree[T]"], dict[str, "TypeTree[T]"], T
 ]
 
-TaskTree: TypeAlias = TypeTree[Task]
+TaskTree: TypeAlias = TypeTree[AbstractTask]
 
 
 def map_type_in_tree(
@@ -53,7 +51,9 @@ def map_type_in_dict(input: dict[T, Any], type, fn) -> dict[T, Any]:
     return {k: map_type_in_tree(input[k], type, fn) for k in input}
 
 
-def map_task_tree(tree: TypeTree[Task], fn: Callable[[Task], U]) -> TypeTree[U]:
+def map_task_tree(
+    tree: TypeTree[AbstractTask], fn: Callable[[AbstractTask], U]
+) -> TypeTree[U]:
     """Recursively explore data structures containing Tasks, and map all Tasks
     found using `fn`.
 
@@ -64,13 +64,13 @@ def map_task_tree(tree: TypeTree[Task], fn: Callable[[Task], U]) -> TypeTree[U]:
     Returns:
         An equivalent data structure, where all the tasks have been mapped using
         `fn`."""
-    return map_type_in_tree(tree, Task, fn)
+    return map_type_in_tree(tree, AbstractTask, fn)
 
 
-def count_tasks_to_run(task: Task, remove_duplicates=True, use_cache=True):
+def count_tasks_to_run(task: AbstractTask, remove_duplicates=True, use_cache=True):
     tasks_by_type = {}
 
-    def handle_one_task(task: Task, *args, **kwargs):
+    def handle_one_task(task: AbstractTask, *args, **kwargs):
         if not use_cache or not task.is_cached():
             task_type = task.__class__.__qualname__
             list_of_type = tasks_by_type.get(task_type, [])
@@ -93,15 +93,16 @@ def count_tasks_to_run(task: Task, remove_duplicates=True, use_cache=True):
 
 
 def resolve_task_tree(
-    task: Task,
+    task: AbstractTask,
     fn: Callable[..., T],
     use_cache=True,
 ) -> T:
-    """Apply function fn on all Task objects encountered while resolving the dependencies of `task`.
-    If a Task has a cached value, do not expand its requirements, and map it immediately. Otherwise,
-    map the task and provide its requirements are arguments."""
+    """Apply function fn on all Task objects encountered while resolving the
+    dependencies of `task`. If a Task has a cached value, do not expand its
+    requirements, and map it immediately. Otherwise, map the task and provide its
+    requirements are arguments."""
 
-    def mapper(task: Task) -> T:
+    def mapper(task: AbstractTask) -> T:
         artifact = task._resolve_artifact()
         requirements = task.requirements()
 
@@ -114,13 +115,15 @@ def resolve_task_tree(
     return mapper(task)
 
 
-def tasks_in_module(module_name: str, package: Optional[str] = None) -> set[Type[Task]]:
+def tasks_in_module(
+    module_name: str, package: Optional[str] = None
+) -> set[Type[AbstractTask]]:
     mod = importlib.import_module(module_name, package=package)
     members = mod.__dict__
 
     tasks = []
     for k in members:
-        if inspect.isclass(members[k]) and issubclass(members[k], Task):
+        if inspect.isclass(members[k]) and issubclass(members[k], AbstractTask):
             if inspect.getmodule(members[k]) == mod:
                 tasks.append(members[k])
 

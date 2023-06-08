@@ -7,7 +7,7 @@ import aqueduct as aq
 T = TypeVar("T")
 
 
-class TaskA(aq.PureTask):
+class TaskA(aq.Task):
     def __init__(self, a):
         self.a = a
 
@@ -15,7 +15,7 @@ class TaskA(aq.PureTask):
         return self.a
 
 
-class TaskB(aq.PureTask):
+class TaskB(aq.Task):
     def requirements(self):
         return [TaskA(2), TaskA(1), TaskA(3)]
 
@@ -23,7 +23,7 @@ class TaskB(aq.PureTask):
         return sum(*reqs)
 
 
-class TaskC(aq.PureTask):
+class TaskC(aq.Task):
     def requirements(self):
         return [TaskA(1), TaskA(1), TaskA(1)]
 
@@ -36,7 +36,7 @@ class AlwaysExistsArtifact(aq.Artifact):
         return True
 
 
-class TaskD(aq.PureTask):
+class TaskD(aq.Task):
     def artifact(self):
         return AlwaysExistsArtifact()
 
@@ -44,7 +44,7 @@ class TaskD(aq.PureTask):
         return TaskA(1)
 
 
-class TaskE(aq.PureTask):
+class TaskE(aq.Task):
     def requirements(self):
         return TaskD()
 

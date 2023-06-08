@@ -1,6 +1,5 @@
 from typing import Any, Callable, Type, TypeVar
 
-import abc
 import inspect
 import pathlib
 import pickle
@@ -9,12 +8,9 @@ import pandas as pd
 import xarray as xr
 
 from ..artifact import Artifact, InMemoryArtifact, LocalFilesystemArtifact
-from .task import Task
+from .task import AbstractTask
 
 T = TypeVar("T")
-U = TypeVar("U")
-
-V = TypeVar("V")
 
 
 READER_OF_TYPE = {
@@ -117,8 +113,20 @@ def load_artifact_memory(artifact: InMemoryArtifact):
     return artifact.store[artifact.key]
 
 
-class PureTask(Task[T]):
+class Task(AbstractTask[T]):
+    """Standard implementation of :class:`AbstractTask`. When called, it returns the
+    value returned by `run` as expected. The :class:`Artifact` is used to automatically
+    store the value returned, according to sane default policies."""
+
     def __call__(self, *args, **kwargs) -> T:
+        """Prepare the context, execute the `run` method, and return its result.
+
+        If an artifact is specified, save the result before returning. If an artifact is
+        specified, and the artifact exists when this is called, to not call `run`, and
+        load the artifact instead.
+
+        Returns
+            The result of `run`."""
         artifact = self._resolve_artifact()
 
         if not artifact:
@@ -132,9 +140,24 @@ class PureTask(Task[T]):
         return result
 
     def save(self, artifact: Artifact, object: T):
+        """Save `object` according to the specification of `artifact`.
+
+        When the Task is executed, this method is called to save the artifact if
+        one is specified by `artifact`. Override this to implement your own storage
+        behavior.
+
+        Arguments
+            artifact: The artiffact that specifies where/how to save the task result.
+            object: The task result."""
         store_artifact(artifact, object)
 
     def load(self, artifact: Artifact) -> T:
+        """Load an artifact and return it.
+
+        If an artifact is specified, this is called to load the artifact from cache
+        to avoid excecuting the `run` method. Override this to implement your own
+        loading behavior.
+        """
         type_hint = inspect.signature(self.run).return_annotation
 
         type_hint = None if type_hint == inspect._empty else type_hint

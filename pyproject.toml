@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["isort", "black", "myst-parser", "nb-clean", "nose", "parquet-tools", "sphinx", "sphinx_rtd_theme"]
+dev = ["isort", "black", "furo", "myst-parser", "nb-clean", "nose", "parquet-tools", "sphinx", "sphinx_rtd_theme"]
 
 [tool.black]
 line-length = 88

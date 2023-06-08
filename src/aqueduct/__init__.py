@@ -6,7 +6,7 @@ from .artifact import (
 )
 from .backend import ImmediateBackend
 from .config import set_config, get_config
-from .task import IOTask, PureTask
+from .task import IOTask, Task
 from .backend.dask import DaskBackend
 from .util import count_tasks_to_run, tasks_in_module
 
@@ -21,6 +21,6 @@ __all__ = [
     "LocalFilesystemArtifact",
     "LocalStoreArtifact",
     "IOTask",
-    "PureTask",
+    "Task",
     "set_config",
 ]

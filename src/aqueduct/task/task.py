@@ -9,7 +9,6 @@ from typing import (
     TYPE_CHECKING,
 )
 
-import dask
 import dask.base
 import inspect
 
@@ -19,46 +18,54 @@ from .autoresolve import WrapInitMeta
 
 
 if TYPE_CHECKING:
-    from ..util import TaskTree
+    from ..util import TaskTree, TypeTree
+    from ..backend import Backend
 
 T = TypeVar("T")
 
-RequirementSpec: TypeAlias = Union[
-    tuple["Task"], list["Task"], dict[str, "Task"], "Task", None
-]
-RequirementArg: TypeAlias = Union[Callable[..., RequirementSpec], RequirementSpec]
 
-
-class Task(Generic[T], metaclass=WrapInitMeta):
-    """Base class for a Task. Subclass this to define your own task.
-
-    Alternatively, the `task` decorator can be used to define simple tasks directly
-    from a function. Class-based Tasks are necessary to define dynamic requirements and
-    artifact."""
+class AbstractTask(Generic[T], metaclass=WrapInitMeta):
+    """Base class for a all Tasks. In most cases you don't have to subclass this
+    directly. Subclass either :class:`IOTask` of :class:`Task` to define your own Task.
+    """
 
     CONFIG: ConfigSpec = None
+    """The configuration of the Task class. It specifies how the `config` method should
+    behave. If set to a dict-like object, that mapping is used as configuration. If set
+    to a `str`, the string is used as a key to retrieve the configuration from the
+    global configuration dict. If set to `None`, the full class name is used as the
+    configuration section for the task."""
 
-    def __init__(self, *args, **kwargs):
-        self._args_hash = dask.base.tokenize(*args, **kwargs)
+    def __init__(self):
+        """The __init__ method of a :class:`Task` automatically retrieves the value of
+        its arguments from the configuration if they are not provided. See
+        :ref:`configuration` for more details."""
+        pass
 
     def __call__(self, *args, **kwargs):
+        """Prepare the context and call `run`. Both class:`Task` and :class:`IOTask`
+        overwrite this."""
         raise NotImplementedError(
             "__call__ not implemented for Task. Did you mean to use IOTask or PureTask as a parent class?"
         )
 
-    def run(self, *args, **kwargs) -> T:
+    def run(self, reqs: Any) -> T:
+        """Subclass this to specify the work done to realize the task. When called,
+        the resolved requirements are passed as the first positional argument."""
         raise NotImplementedError()
 
     def artifact(self) -> ArtifactSpec:
-        """Express wheter the output of `run` should be saved as an :class:`Artifact`.
-
-        When running the Task, if the artifact was previously created and is available
-        inside the :class:`Store`, then the task will not be executed and the artifact
-        will be loaded from the `Store` instead.
+        """Describe the artifact produced by `run`. See :class:`Artifact` for more
+        details.
 
         Returns:
-            If no artifact should be created, return `None`.
-            If an artifact should be created, return an :class:`Artifact` instance."""
+            If `None`, the class does not store any artifact. It will be fully run
+                every time it is called.
+            If `str`,  the class stores a :class:`LocalFilesystemArtifact` at the
+                location specified by the string. If that file exists, the task
+                will be loaded from the filesystem instead of being run.
+            If an :class:`Artifact` object, the class stores resources as specified by
+                the object."""
         return None
 
     def _resolve_artifact(self) -> Artifact | None:
@@ -66,13 +73,30 @@ class Task(Generic[T], metaclass=WrapInitMeta):
         return resolve_artifact_from_spec(spec)
 
     def is_cached(self) -> bool:
+        """Indicates if the Task is currently cached.
+
+        Returns:
+            A boolean indicating if there exists a stored artifact as specified by the
+            `artifact` method."""
         artifact = self._resolve_artifact()
         return artifact is not None and artifact.exists()
 
     def requirements(self) -> Optional["TaskTree"]:
+        """Subclass this to express the Tasks that are required for this Task to run.
+        The tasks specified here will be computed before this Task is executed. The
+        result of the required tasks is passed as an argument to the `run` method.
+
+        Returns:
+            If `None`, the task has no dependencies. If a `Task` instance, that task is
+            computed, and the result is passed as argument to the `run` method. If a
+            data structure containing Tasks, the tasks are replaced by their results in
+            the data structure, and then the data structure is passed as an argument
+            to `run`."""
         return None
 
-    def config(self):
+    def config(self) -> Config:
+        """Resolve the configuration as specified in the `CONFIG` class variable, and
+        return it."""
         return resolve_config_from_spec(self.CONFIG, self.__class__)
 
     @classmethod
@@ -85,14 +109,34 @@ class Task(Generic[T], metaclass=WrapInitMeta):
         return module.__name__ + "." + cls.__qualname__
 
     def _unique_key(self):
-        """If the key has a dash in the middle, Dask makes it pleasant to look at in
-        the dashboard."""
+        """Generate a unique key that identifies the task."""
+
+        # Here, _args_hash is set by the WrapInit metaclass. This makes things more
+        # confusing, but in return the user does not have to worry about calling
+        # super().__init__().
         return "-".join(
-            [self.__class__.__qualname__, self._fully_qualified_name(), self._args_hash]
+            [self.__class__.__qualname__, self._fully_qualified_name(), self._args_hash]  # type: ignore
         )
 
-    def compute(self) -> T:
-        from ..backend import ImmediateBackend
+    def result(self, backend: Optional["Backend"] = None) -> T:
+        """Compute the result of the Task locally and return it. This is equivalent to
+        calling to using the `execute` method of the :class:`ImmediateBackend`.
 
-        immediate_backend = ImmediateBackend()
-        return immediate_backend.run(self)
+        Arguments:
+            backend: The computing backend to use. Defaults to :class:`ImmediateBackend`.
+
+        Returns:
+            The value returned by the `run` method."""
+
+        if backend is None:
+            from ..backend import ImmediateBackend
+
+            backend = ImmediateBackend()
+
+        return backend.execute(self)
+
+
+RequirementSpec: TypeAlias = Union[
+    tuple[AbstractTask], list[AbstractTask], dict[str, AbstractTask], AbstractTask, None
+]
+RequirementArg: TypeAlias = Union[Callable[..., RequirementSpec], RequirementSpec]

@@ -4,7 +4,7 @@ from aqueduct.artifact import ArtifactSpec, InMemoryArtifact
 from aqueduct.config import set_config, resolve_config_from_spec
 from aqueduct.task import (
     IOTask,
-    PureTask,
+    Task,
 )
 
 from aqueduct.task.autoresolve import fetch_args_from_config
@@ -12,7 +12,7 @@ from aqueduct.task.autoresolve import fetch_args_from_config
 
 class TestCompute(unittest.TestCase):
     def test_simple_task(self):
-        class SimpleTask(PureTask):
+        class SimpleTask(Task):
             def __init__(self, value):
                 self.value = value
 
@@ -20,10 +20,10 @@ class TestCompute(unittest.TestCase):
                 return self.value
 
         t = SimpleTask(2)
-        self.assertEqual(2, t.compute())
+        self.assertEqual(2, t.result())
 
 
-class PretenseTask(PureTask):
+class PretenseTask(Task):
     def __init__(self, a, b=None, c=12):
         self.a = a
         self.b = b
@@ -44,7 +44,7 @@ class TestResolveConfig(unittest.TestCase):
         pass
 
     def test_resolve_dict(self):
-        class LocalTask(PureTask):
+        class LocalTask(Task):
             def cfg(self):
                 return {}
 
@@ -58,7 +58,7 @@ class TestResolveConfig(unittest.TestCase):
         cfg = {"section": {"value": 2}}
         set_config(cfg)
 
-        class LocalTask(PureTask):
+        class LocalTask(Task):
             CONFIG = "section"
 
             def run(self):
@@ -107,7 +107,7 @@ class TestFetchArgsOnCall(unittest.TestCase):
         set_config({"tests": {"test_task": {"PretenseTask": inner_dict}}})
 
         t = PretenseTask(3)
-        self.assertEqual(18, t.compute())
+        self.assertEqual(18, t.result())
 
 
 store = {}
@@ -133,7 +133,7 @@ class TestStorageCheck(unittest.TestCase):
         set_config({"aqueduct": {"check_storage": True}})
 
         t = StoringTask()
-        t.compute()
+        t.result()
 
         self.assertTrue(t.artifact().exists())
 
@@ -141,4 +141,4 @@ class TestStorageCheck(unittest.TestCase):
         set_config({"aqueduct": {"check_storage": True}})
         t = StoringTask(should_succeed=False)
 
-        self.assertRaises(KeyError, lambda: t.compute())
+        self.assertRaises(RuntimeError, lambda: t.result())

@@ -1,3 +1,4 @@
+import dask.base
 import functools
 import inspect
 from typing import cast, Type, Callable, Any, TYPE_CHECKING, Mapping, Tuple
@@ -5,11 +6,11 @@ from typing import cast, Type, Callable, Any, TYPE_CHECKING, Mapping, Tuple
 from ..config import Config, resolve_config_from_spec
 
 if TYPE_CHECKING:
-    from .task import Task
+    from .task import AbstractTask
 
 
 def fetch_args_from_config(
-    fn: Callable, args, kwargs: Mapping[str, Any], cfg: Config
+    cfg: Config, fn: Callable, *args, **kwargs: Mapping[str, Any]
 ) -> Tuple[Tuple, Mapping[str, Any]]:
     """Given a callable and a configuration dict, try and fetch argument values from
     the config dict if needed.
@@ -49,11 +50,13 @@ def fetch_args_from_config(
     return bind.args, bind.kwargs
 
 
-def init_wrapper(task_class: Type["Task"], fn):
+def init_wrapper(task_class: Type["AbstractTask"], fn):
     @functools.wraps(fn)
-    def wrapped_init(*args, **kwargs):
+    def wrapped_init(self, *args, **kwargs):
         cfg = resolve_config_from_spec(task_class.CONFIG, task_class)
-        new_args, new_kwargs = fetch_args_from_config(fn, args, kwargs, cfg)
+        new_args, new_kwargs = fetch_args_from_config(cfg, fn, self, *args, **kwargs)
+
+        self._args_hash = dask.base.tokenize(*new_args, **new_kwargs)
 
         return fn(*new_args, **new_kwargs)
 
@@ -64,5 +67,5 @@ class WrapInitMeta(type):
     def __new__(cls, name, bases, dct, **kwds):
         print("Metaclass creating class")
         x = super().__new__(cls, name, bases, dct, **kwds)
-        x.__init__ = init_wrapper(x, x.__init__)
+        x.__init__ = init_wrapper(x, x.__init__)  # type: ignore
         return x
