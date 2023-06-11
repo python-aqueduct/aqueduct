@@ -1,142 +1,191 @@
-from typing import (
-    Any,
-    Callable,
-    Generic,
-    TypeVar,
-    TypeAlias,
-    Union,
-    Optional,
-    TYPE_CHECKING,
-)
+from typing import Any, Callable, Type, TypeVar
 
-import dask.base
 import inspect
+import logging
+import pathlib
+import pickle
 
-from ..artifact import Artifact, ArtifactSpec, resolve_artifact_from_spec
-from ..config import Config, ConfigSpec, resolve_config_from_spec
-from .autoresolve import WrapInitMeta
+import pandas as pd
+import xarray as xr
 
-
-if TYPE_CHECKING:
-    from ..util import TaskTree, TypeTree
-    from ..backend import Backend
+from ..artifact import Artifact, InMemoryArtifact, LocalFilesystemArtifact
+from .abstract_task import AbstractTask
 
 T = TypeVar("T")
 
 
-class AbstractTask(Generic[T], metaclass=WrapInitMeta):
-    """Base class for a all Tasks. In most cases you don't have to subclass this
-    directly. Subclass either :class:`IOTask` of :class:`Task` to define your own Task.
-    """
+_logger = logging.getLogger(__name__)
 
-    CONFIG: ConfigSpec = None
-    """The configuration of the Task class. It specifies how the `config` method should
-    behave. If set to a dict-like object, that mapping is used as configuration. If set
-    to a `str`, the string is used as a key to retrieve the configuration from the
-    global configuration dict. If set to `None`, the full class name is used as the
-    configuration section for the task."""
 
-    def __init__(self):
-        """The __init__ method of a :class:`Task` automatically retrieves the value of
-        its arguments from the configuration if they are not provided. See
-        :ref:`configuration` for more details."""
+def write_to_parquet(df: pd.DataFrame, path: str):
+    df.to_parquet(path)
+
+
+def write_to_netcdf(array: xr.Dataset, path: str):
+    array.to_netcdf(path)
+
+
+READER_OF_TYPE = {
+    pd.DataFrame: pd.read_parquet,
+    xr.Dataset: xr.open_dataset,
+    xr.DataArray: xr.open_dataarray,
+}
+
+READER_OF_SUFFIX = {
+    ".parquet": pd.read_parquet,
+    ".nc": xr.open_dataset,
+}
+
+
+WRITERS = {
+    pd.DataFrame: write_to_parquet,
+    xr.Dataset: xr.open_dataset,
+    xr.DataArray: xr.open_dataarray,
+}
+
+
+def pickle_write_to_file(object: Any, path: str):
+    with open(path, "wb") as f:
+        pickle.dump(object, f)
+
+
+def pickle_load_file(path: str) -> Any:
+    with open(path, "rb") as f:
+        return pickle.load(f)
+
+
+DEFAULT_READER = pickle_load_file
+DEFAULT_WRITER = pickle_write_to_file
+
+
+def resolve_writer(t: Type[T] | None) -> Callable[[T, str], None]:
+    if t is not None:
+        return WRITERS.get(t, DEFAULT_WRITER)
+    else:
+        return DEFAULT_WRITER
+
+
+def resolve_reader(t: Type[T] | None, filename: pathlib.Path) -> Callable[[str], T]:
+    suffix = filename.suffix
+
+    if t is not None:
+        return READER_OF_TYPE.get(t, DEFAULT_READER)
+    elif t is None and suffix:
+        return READER_OF_SUFFIX.get(suffix, DEFAULT_READER)
+    else:
+        return DEFAULT_READER
+
+
+def store_artifact(artifact: Artifact, object: Any):
+    if isinstance(artifact, LocalFilesystemArtifact):
+        store_artifact_filesystem(artifact, object)
+    elif isinstance(artifact, InMemoryArtifact):
+        store_artifact_memory(artifact, object)
+    else:
+        raise ValueError(f"Artifact {artifact} not supported for automatic storage.")
+
+
+def store_artifact_filesystem(
+    artifact: LocalFilesystemArtifact,
+    object: T,
+    object_type_hint: Type[T] | None = None,
+):
+    path = artifact.path
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    writer = resolve_writer(type(object))
+
+    _logger.info(f"Writing using {writer}")
+
+    with path.open("wb") as f:
+        writer(object, str(path))
+
+
+def store_artifact_memory(artifact: InMemoryArtifact, object: Any):
+    store = artifact.store
+    store[artifact.key] = object
+
+
+def load_artifact(artifact: Artifact, type_hint: Type | None = None) -> Any:
+    if isinstance(artifact, LocalFilesystemArtifact):
+        return load_artifact_filesystem(artifact, type_hint)
+    elif isinstance(artifact, InMemoryArtifact):
+        return load_artifact_memory(artifact)
+    else:
+        raise ValueError(
+            f"Artifact type {artifact} not supported for automatic storage."
+        )
+
+
+def load_artifact_filesystem(
+    artifact: LocalFilesystemArtifact, type_hint: Type | None
+) -> Any:
+    reader = resolve_reader(type_hint, artifact.path)
+
+    return reader(str(artifact.path))
+
+
+def load_artifact_memory(artifact: InMemoryArtifact):
+    return artifact.store[artifact.key]
+
+
+class Task(AbstractTask[T]):
+    """Standard implementation of :class:`AbstractTask`. When called, it returns the
+    value returned by `run` as expected. The :class:`Artifact` is used to automatically
+    store the value returned, according to sane default policies."""
+
+    def __call__(self, *args, **kwargs) -> T:
+        """Prepare the context, execute the `run` method, and return its result.
+
+        If an artifact is specified, save the result before returning. If an artifact is
+        specified, and the artifact exists when this is called, to not call `run`, and
+        load the artifact instead.
+
+        Returns
+            The result of `run`."""
+        artifact = self._resolve_artifact()
+
+        force_run = getattr(self, "_aq_force_root", False)
+
+        if not artifact:
+            _logger.info(f"Running task {self}")
+            result = self.run(*args, **kwargs)
+        elif artifact and artifact.exists() and not force_run:
+            _logger.info(f"Loading result of {self} from {artifact}")
+            result = self.load(artifact)
+        else:
+            _logger.info(f"Running task {self}")
+            result = self.run(*args, **kwargs)
+
+            _logger.info(f"Saving result of {self} to {artifact}")
+            self.save(artifact, result)
+
+        return result
+
+    def run(self, *args, **kwargs):
         pass
 
-    def __call__(self, *args, **kwargs):
-        """Prepare the context and call `run`. Both class:`Task` and :class:`IOTask`
-        overwrite this."""
-        raise NotImplementedError(
-            "__call__ not implemented for Task. Did you mean to use IOTask or PureTask as a parent class?"
-        )
+    def save(self, artifact: Artifact, object: T):
+        """Save `object` according to the specification of `artifact`.
 
-    def run(self, reqs: Any) -> T:
-        """Subclass this to specify the work done to realize the task. When called,
-        the resolved requirements are passed as the first positional argument."""
-        raise NotImplementedError()
+        When the Task is executed, this method is called to save the artifact if
+        one is specified by `artifact`. Override this to implement your own storage
+        behavior.
 
-    def artifact(self) -> ArtifactSpec:
-        """Describe the artifact produced by `run`. See :class:`Artifact` for more
-        details.
+        Arguments
+            artifact: The artiffact that specifies where/how to save the task result.
+            object: The task result."""
+        store_artifact(artifact, object)
 
-        Returns:
-            If `None`, the class does not store any artifact. It will be fully run
-                every time it is called.
-            If `str`,  the class stores a :class:`LocalFilesystemArtifact` at the
-                location specified by the string. If that file exists, the task
-                will be loaded from the filesystem instead of being run.
-            If an :class:`Artifact` object, the class stores resources as specified by
-                the object."""
-        return None
+    def load(self, artifact: Artifact) -> T:
+        """Load an artifact and return it.
 
-    def _resolve_artifact(self) -> Artifact | None:
-        spec = self.artifact()
-        return resolve_artifact_from_spec(spec)
+        If an artifact is specified, this is called to load the artifact from cache
+        to avoid excecuting the `run` method. Override this to implement your own
+        loading behavior.
+        """
+        type_hint = inspect.signature(self.run).return_annotation
 
-    def is_cached(self) -> bool:
-        """Indicates if the Task is currently cached.
+        type_hint = None if type_hint == inspect._empty else type_hint
 
-        Returns:
-            A boolean indicating if there exists a stored artifact as specified by the
-            `artifact` method."""
-        artifact = self._resolve_artifact()
-        return artifact is not None and artifact.exists()
-
-    def requirements(self) -> Optional["TaskTree"]:
-        """Subclass this to express the Tasks that are required for this Task to run.
-        The tasks specified here will be computed before this Task is executed. The
-        result of the required tasks is passed as an argument to the `run` method.
-
-        Returns:
-            If `None`, the task has no dependencies. If a `Task` instance, that task is
-            computed, and the result is passed as argument to the `run` method. If a
-            data structure containing Tasks, the tasks are replaced by their results in
-            the data structure, and then the data structure is passed as an argument
-            to `run`."""
-        return None
-
-    def config(self) -> Config:
-        """Resolve the configuration as specified in the `CONFIG` class variable, and
-        return it."""
-        return resolve_config_from_spec(self.CONFIG, self.__class__)
-
-    @classmethod
-    def _fully_qualified_name(cls) -> str:
-        module = inspect.getmodule(cls)
-
-        if module is None:
-            raise RuntimeError("Could not recover module for Task.")
-
-        return module.__name__ + "." + cls.__qualname__
-
-    def _unique_key(self):
-        """Generate a unique key that identifies the task."""
-
-        # Here, _args_hash is set by the WrapInit metaclass. This makes things more
-        # confusing, but in return the user does not have to worry about calling
-        # super().__init__().
-        return "-".join(
-            [self.__class__.__qualname__, self._fully_qualified_name(), self._args_hash]  # type: ignore
-        )
-
-    def result(self, backend: Optional["Backend"] = None) -> T:
-        """Compute the result of the Task locally and return it. This is equivalent to
-        calling to using the `execute` method of the :class:`ImmediateBackend`.
-
-        Arguments:
-            backend: The computing backend to use. Defaults to :class:`ImmediateBackend`.
-
-        Returns:
-            The value returned by the `run` method."""
-
-        if backend is None:
-            from ..backend import ImmediateBackend
-
-            backend = ImmediateBackend()
-
-        return backend.execute(self)
-
-
-RequirementSpec: TypeAlias = Union[
-    tuple[AbstractTask], list[AbstractTask], dict[str, AbstractTask], AbstractTask, None
-]
-RequirementArg: TypeAlias = Union[Callable[..., RequirementSpec], RequirementSpec]
+        return load_artifact(artifact, type_hint=type_hint)

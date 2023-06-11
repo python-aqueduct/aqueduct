@@ -37,10 +37,10 @@ class DaskBackend(Backend):
         _logger.info("Creating graph...")
         graph = create_dask_graph(task, self.client)
 
-        for _ in tqdm.tqdm(
+        for f in tqdm.tqdm(
             as_completed(self.client.futures, raise_errors=False), desc="Dask jobs"
         ):
-            pass
+            print(f)
 
         return cast(T, graph.result())
 

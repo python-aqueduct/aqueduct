@@ -27,32 +27,35 @@ class TestBackendResolution(unittest.TestCase):
         self.assertIsInstance(backend, ImmediateBackend)
 
 
+class SimpleTask(Task):
+    def run(self):
+        return 2
+
+
+class TaskA(Task[int]):
+    def run(self):
+        return 2
+
+
+class TaskB(Task[int]):
+    def run(self, reqs):
+        return reqs * 2
+
+    def requirements(self) -> TaskA:
+        return TaskA()
+
+
 class TestImmediateBackend(unittest.TestCase):
     def setUp(self):
         self.backend = ImmediateBackend()
 
     def test_run_task(self):
-        class SimpleTask(Task):
-            def run(self):
-                return 2
-
         t = SimpleTask()
 
         backend = self.backend
         self.assertEqual(backend.execute(t), 2)
 
     def test_run_dep(self):
-        class TaskA(Task[int]):
-            def run(self):
-                return 2
-
-        class TaskB(Task[int]):
-            def run(self, reqs):
-                return reqs * 2
-
-            def requirements(self) -> TaskA:
-                return TaskA()
-
         t = TaskB()
         self.assertEqual(self.backend.execute(t), 4)
 

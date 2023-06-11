@@ -103,10 +103,9 @@ def resolve_task_tree(
     requirements are arguments."""
 
     def mapper(task: AbstractTask) -> T:
-        artifact = task._resolve_artifact()
-        requirements = task.requirements()
+        requirements = task._resolve_requirements()
 
-        if (use_cache and artifact and artifact.exists()) or requirements is None:
+        if requirements is None:
             return fn(task)
         else:
             mapped_requirements = map_task_tree(requirements, mapper)

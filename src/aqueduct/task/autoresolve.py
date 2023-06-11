@@ -6,7 +6,7 @@ from typing import cast, Type, Callable, Any, TYPE_CHECKING, Mapping, Tuple
 from ..config import Config, resolve_config_from_spec
 
 if TYPE_CHECKING:
-    from .task import AbstractTask
+    from .abstract_task import AbstractTask
 
 
 def fetch_args_from_config(
@@ -65,7 +65,6 @@ def init_wrapper(task_class: Type["AbstractTask"], fn):
 
 class WrapInitMeta(type):
     def __new__(cls, name, bases, dct, **kwds):
-        print("Metaclass creating class")
         x = super().__new__(cls, name, bases, dct, **kwds)
         x.__init__ = init_wrapper(x, x.__init__)  # type: ignore
         return x

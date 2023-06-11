@@ -16,7 +16,6 @@ def undill_and_run(serialized_fn, *args, **kwargs):
     try:
         return fn(*args, **kwargs)
     except Exception as e:
-        print(e)
         raise
 
 
@@ -24,7 +23,7 @@ def task_to_future_resolve(task: AbstractTask[T], executor: Executor) -> Future[
     def map_task_to_future(
         task: AbstractTask[T], requirements: Optional[TypeTree[Future]] = None
     ) -> Future[T]:
-        if requirements:
+        if requirements is not None:
             requirement_futures = []
 
             def acc_reqs(f: Future) -> Future:

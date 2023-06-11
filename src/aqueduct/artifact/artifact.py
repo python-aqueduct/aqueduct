@@ -8,8 +8,14 @@ _logger = logging.getLogger(__name__)
 
 
 class Artifact(abc.ABC):
+    """The location and metadata of a store artifact."""
+
     @abc.abstractmethod
     def exists(self) -> bool:
+        """Check if the artifact already exists.
+
+        Returns
+            `True` if the artifact already exists, `False` otherwise."""
         raise NotImplementedError()
 
     def last_modified(self) -> datetime.datetime:

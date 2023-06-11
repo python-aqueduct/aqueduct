@@ -5,7 +5,7 @@ import logging
 
 from ..config import get_deep_key, get_config
 from ..artifact import Artifact
-from .task import AbstractTask
+from .abstract_task import AbstractTask
 
 
 _logger = logging.getLogger(__name__)
@@ -40,7 +40,9 @@ class IOTask(AbstractTask[T]):
         global_config = get_config()
         artifact = self._resolve_artifact()
 
-        if not artifact or not artifact.exists():
+        force_root = getattr(self, "_aq_force_root", False)
+
+        if force_root or not artifact or not artifact.exists():
             self.run(*args, **kwargs)
 
         if artifact and get_deep_key(global_config, "aqueduct.check_storage", False):

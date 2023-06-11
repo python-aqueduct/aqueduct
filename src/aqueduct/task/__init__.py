@@ -11,8 +11,9 @@ four main features:
 The two concrete types of tasks which you should subclass are :class:`Task` and
 :class:`IOTask`."""
 
-from .task import AbstractTask
+from .abstract_task import AbstractTask
+from .aggregate import AggregateTask
 from .io_task import IOTask
-from .pure_task import Task
+from .task import Task
 
-__all__ = ["AbstractTask", "Task", "IOTask"]
+__all__ = ["AbstractTask", "AggregateTask", "Task", "IOTask"]

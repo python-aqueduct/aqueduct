@@ -1,13 +1,17 @@
 import unittest
 
-from aqueduct.artifact import ArtifactSpec, InMemoryArtifact
+import pandas as pd
+
+from aqueduct.artifact import ArtifactSpec, InMemoryArtifact, CompositeArtifact
 from aqueduct.config import set_config, resolve_config_from_spec
 from aqueduct.task import (
     IOTask,
     Task,
+    AggregateTask,
 )
 
 from aqueduct.task.autoresolve import fetch_args_from_config
+from aqueduct.task.task import resolve_writer
 
 
 class TestCompute(unittest.TestCase):
@@ -84,7 +88,7 @@ class TestFetchArgs(unittest.TestCase):
             self.assertEqual(a, 2)
             self.assertIsNone(b)
 
-        new_args, new_kwargs = fetch_args_from_config(fn, (2,), {}, {})
+        new_args, new_kwargs = fetch_args_from_config({}, fn, 2)
 
         fn(*new_args, **new_kwargs)
 
@@ -93,7 +97,7 @@ class TestFetchArgs(unittest.TestCase):
             self.assertEqual(b, 13)
             self.assertEqual(a, 14)
 
-        new_args, new_kwargs = fetch_args_from_config(fn, (14,), {}, {"b": 13})
+        new_args, new_kwargs = fetch_args_from_config({"b": 13}, fn, 14)
 
         fn(*new_args, **new_kwargs)
 
@@ -142,3 +146,45 @@ class TestStorageCheck(unittest.TestCase):
         t = StoringTask(should_succeed=False)
 
         self.assertRaises(RuntimeError, lambda: t.result())
+
+
+class TestTaskIO(unittest.TestCase):
+    def test_resolve_writer(self):
+        writer = resolve_writer(pd.DataFrame)
+        self.assertEqual(writer.__name__, "write_to_parquet")
+
+
+class TaskWithArtifact(Task):
+    def __init__(self):
+        self.store = {}
+        super().__init__()
+
+    def artifact(self):
+        return InMemoryArtifact("test", self.store)
+
+
+class TaskWithoutArtifact(Task):
+    pass
+
+
+class TestAggregateTask(unittest.TestCase):
+    def setUp(self):
+        self.store = {}
+
+    def test_empty_artifacts(self):
+        class Aggregate(AggregateTask):
+            def requirements(self):
+                return [TaskWithoutArtifact(), TaskWithoutArtifact()]
+
+        t = Aggregate()
+        self.assertIsNone(t._resolve_artifact())
+
+    def test_with_artifacts(self):
+        class Aggregate(AggregateTask):
+            def requirements(self):
+                return [TaskWithArtifact(), TaskWithArtifact()]
+
+        t = Aggregate()
+        resolved_artifact = t._resolve_artifact()
+        self.assertIsInstance(resolved_artifact, CompositeArtifact)
+        self.assertEqual(2, len(resolved_artifact.artifacts))

@@ -8,7 +8,7 @@ T = TypeVar("T")
 
 
 def execute_task(task: AbstractTask[T], requirements=None) -> T:
-    if requirements:
+    if requirements is not None:
         return task(requirements)
     else:
         return task()
