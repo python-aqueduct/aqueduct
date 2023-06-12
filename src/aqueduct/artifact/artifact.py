@@ -21,5 +21,10 @@ class Artifact(abc.ABC):
     def last_modified(self) -> datetime.datetime:
         return datetime.datetime.fromtimestamp(0)
 
+    @abc.abstractmethod
+    def size(self) -> int:
+        """The size of the stored artifact, in bytes."""
+        raise NotImplementedError()
+
 
 ArtifactSpec: TypeAlias = Artifact | str | None

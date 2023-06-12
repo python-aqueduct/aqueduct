@@ -8,7 +8,7 @@ from .artifact import Artifact, ArtifactSpec
 from .composite import CompositeArtifact
 from .inmemory import InMemoryArtifact
 from .local import LocalFilesystemArtifact, LocalStoreArtifact
-
+from .util import artifact_report
 
 _logger = logging.getLogger(__name__)
 

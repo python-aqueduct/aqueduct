@@ -23,3 +23,6 @@ class AggregateTask(Task):
             return CompositeArtifact(artifacts)
         else:
             return None
+
+    def run(self, reqs):
+        return reqs

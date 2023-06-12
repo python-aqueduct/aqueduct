@@ -17,3 +17,6 @@ class CompositeArtifact(Artifact):
     def __repr__(self):
         inner_repr = ", ".join([repr(a) for a in self.artifacts])
         return f"CompositeArtifact([{inner_repr}])"
+
+    def size(self):
+        return sum([x.size() for x in self.artifacts])

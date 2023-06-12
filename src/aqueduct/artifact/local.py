@@ -24,6 +24,9 @@ class LocalFilesystemArtifact(Artifact):
     def __repr__(self):
         return f"LocalFilesystemArtifact({self.path})"
 
+    def size(self) -> int:
+        return self.path.stat().st_size
+
 
 class LocalStoreArtifact(LocalFilesystemArtifact):
     """Very similar to :class:`LocalFilesystemArtifact`. If the provided path is

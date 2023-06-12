@@ -8,7 +8,12 @@ import pickle
 import pandas as pd
 import xarray as xr
 
-from ..artifact import Artifact, InMemoryArtifact, LocalFilesystemArtifact
+from ..artifact import (
+    Artifact,
+    InMemoryArtifact,
+    LocalFilesystemArtifact,
+    CompositeArtifact,
+)
 from .abstract_task import AbstractTask
 
 T = TypeVar("T")
@@ -111,6 +116,12 @@ def load_artifact(artifact: Artifact, type_hint: Type | None = None) -> Any:
         return load_artifact_filesystem(artifact, type_hint)
     elif isinstance(artifact, InMemoryArtifact):
         return load_artifact_memory(artifact)
+    elif isinstance(artifact, CompositeArtifact):
+        loaded_children = []
+        for a in artifact.artifacts:
+            loaded_children.append(load_artifact(a))
+
+        return loaded_children
     else:
         raise ValueError(
             f"Artifact type {artifact} not supported for automatic storage."

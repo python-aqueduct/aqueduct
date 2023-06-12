@@ -10,3 +10,6 @@ class InMemoryArtifact(Artifact):
 
     def exists(self) -> bool:
         return self.key in self.store
+
+    def size(self) -> int:
+        return 0

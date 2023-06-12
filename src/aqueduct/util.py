@@ -1,8 +1,19 @@
 import importlib
+import math
 import inspect
-from typing import Any, Callable, Optional, TypeVar, TypeAlias, Union, Type
+from typing import (
+    Any,
+    Callable,
+    Optional,
+    TypeVar,
+    TypeAlias,
+    Union,
+    Type,
+    TYPE_CHECKING,
+)
 
-from .task import AbstractTask
+if TYPE_CHECKING:
+    from .task import AbstractTask
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -11,7 +22,7 @@ TypeTree: TypeAlias = Union[
     list["TypeTree[T]"], tuple["TypeTree[T]"], dict[str, "TypeTree[T]"], T
 ]
 
-TaskTree: TypeAlias = TypeTree[AbstractTask]
+TaskTree: TypeAlias = TypeTree["AbstractTask"]
 
 
 def map_type_in_tree(
@@ -52,7 +63,7 @@ def map_type_in_dict(input: dict[T, Any], type, fn) -> dict[T, Any]:
 
 
 def map_task_tree(
-    tree: TypeTree[AbstractTask], fn: Callable[[AbstractTask], U]
+    tree: TypeTree["AbstractTask"], fn: Callable[["AbstractTask"], U]
 ) -> TypeTree[U]:
     """Recursively explore data structures containing Tasks, and map all Tasks
     found using `fn`.
@@ -64,13 +75,15 @@ def map_task_tree(
     Returns:
         An equivalent data structure, where all the tasks have been mapped using
         `fn`."""
+    from .task import AbstractTask
+
     return map_type_in_tree(tree, AbstractTask, fn)
 
 
-def count_tasks_to_run(task: AbstractTask, remove_duplicates=True, use_cache=True):
+def count_tasks_to_run(task: "AbstractTask", remove_duplicates=True, use_cache=True):
     tasks_by_type = {}
 
-    def handle_one_task(task: AbstractTask, *args, **kwargs):
+    def handle_one_task(task: "AbstractTask", *args, **kwargs):
         if not use_cache or not task.is_cached():
             task_type = task.__class__.__qualname__
             list_of_type = tasks_by_type.get(task_type, [])
@@ -93,7 +106,7 @@ def count_tasks_to_run(task: AbstractTask, remove_duplicates=True, use_cache=Tru
 
 
 def resolve_task_tree(
-    task: AbstractTask,
+    task: "AbstractTask",
     fn: Callable[..., T],
     use_cache=True,
 ) -> T:
@@ -102,7 +115,7 @@ def resolve_task_tree(
     requirements, and map it immediately. Otherwise, map the task and provide its
     requirements are arguments."""
 
-    def mapper(task: AbstractTask) -> T:
+    def mapper(task: "AbstractTask") -> T:
         requirements = task._resolve_requirements()
 
         if requirements is None:
@@ -116,14 +129,24 @@ def resolve_task_tree(
 
 def tasks_in_module(
     module_name: str, package: Optional[str] = None
-) -> set[Type[AbstractTask]]:
+) -> set[Type["AbstractTask"]]:
     mod = importlib.import_module(module_name, package=package)
     members = mod.__dict__
 
     tasks = []
     for k in members:
-        if inspect.isclass(members[k]) and issubclass(members[k], AbstractTask):
+        if inspect.isclass(members[k]) and issubclass(members[k], "AbstractTask"):
             if inspect.getmodule(members[k]) == mod:
                 tasks.append(members[k])
 
     return set(tasks)
+
+
+def convert_size(size_bytes: int) -> str:
+    if size_bytes == 0:
+        return "0B"
+    size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
+    i = int(math.floor(math.log(size_bytes, 1024)))
+    p = math.pow(1024, i)
+    s = round(size_bytes / p, 2)
+    return "%s %s" % (s, size_name[i])
