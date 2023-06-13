@@ -1,5 +1,8 @@
 from typing import Optional, Type, TypeVar, Any
 
+import base64
+import cloudpickle
+
 from .config import Config
 from .task import AbstractTask
 from .task.util import compute_requirements
@@ -12,6 +15,7 @@ AQ_INJECTED_TASK: Optional[AbstractTask] = None
 AQ_MAGIC_DEFINED_TASK_CLASS: Optional[Type[AbstractTask]] = None
 AQ_INJECTED_REQUIREMENTS: Optional[Any] = None
 AQ_MANAGED_EXECUTION: bool = False
+AQ_ENCODED_RETURN: Optional[Any] = None
 
 
 def get_task(*args, **kwargs) -> AbstractTask:
@@ -49,3 +53,9 @@ def get_requirements():
     requirements = AQ_INJECTED_TASK._resolve_requirements(ignore_cache=True)
 
     return map_task_tree(requirements, mapper)
+
+
+def sink(object):
+    global AQ_ENCODED_RETURN
+
+    AQ_ENCODED_RETURN = base64.b64encode(cloudpickle.dumps(object)).decode()

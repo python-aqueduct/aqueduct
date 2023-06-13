@@ -96,6 +96,33 @@ class NotebookTask(AbstractTask):
             if export_spec is not None:
                 nbformat.write(notebook_source, export_spec)
 
+        response = asyncio.run(
+            kernel_client.execute_interactive(
+                code="import aqueduct.notebook",
+                user_expressions={
+                    "aq_return_value": "aqueduct.notebook.AQ_ENCODED_RETURN"
+                },
+            )
+        )
+
+        aq_return_value_dict = response["content"]["user_expressions"][
+            "aq_return_value"
+        ]
+
+        print(aq_return_value_dict)
+
+        if aq_return_value_dict["status"] != "ok":
+            raise RuntimeError("Failed to try and recover return value from notebook.")
+
+        if aq_return_value_dict["data"]["text/plain"] == "None":
+            sinked_value = None
+        else:
+            sinked_value = cloudpickle.loads(
+                base64.b64decode(aq_return_value_dict["data"]["text/plain"][1:-1])
+            )
+
+        return sinked_value
+
     def _resolve_notebook(self) -> pathlib.Path():
         path_of_module = pathlib.Path(importlib.util.find_spec(self.__module__).origin)
         path = pathlib.Path(self.notebook())
