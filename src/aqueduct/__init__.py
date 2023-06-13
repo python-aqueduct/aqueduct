@@ -6,9 +6,11 @@ from .artifact import (
 )
 from .backend import ImmediateBackend
 from .config import set_config, get_config
-from .task import IOTask, Task, AggregateTask
+from .task import IOTask, Task, AggregateTask, NotebookTask
 from .backend.dask import DaskBackend
 from .util import count_tasks_to_run, tasks_in_module
+
+from . import notebook
 
 __all__ = [
     "Artifact",
@@ -22,6 +24,8 @@ __all__ = [
     "LocalFilesystemArtifact",
     "LocalStoreArtifact",
     "IOTask",
+    "NotebookTask",
     "Task",
     "set_config",
+    "notebook",
 ]

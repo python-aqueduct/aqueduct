@@ -7,6 +7,8 @@ from ..util import map_task_tree
 
 
 class AggregateTask(Task):
+    _ALLOW_SAVE = False
+
     def artifact(self) -> Optional[CompositeArtifact]:
         artifacts = []
 

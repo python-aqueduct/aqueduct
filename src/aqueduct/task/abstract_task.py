@@ -93,12 +93,17 @@ class AbstractTask(Generic[T], metaclass=WrapInitMeta):
             to `run`."""
         return None
 
-    def _resolve_requirements(self) -> Optional["TaskTree"]:
+    def _resolve_requirements(self, ignore_cache=False) -> Optional["TaskTree"]:
         artifact = self._resolve_artifact()
 
         force_run = getattr(self, "_aq_force_root", False)
 
-        if artifact is not None and artifact.exists() and not force_run:
+        if (
+            artifact is not None
+            and artifact.exists()
+            and not force_run
+            and not ignore_cache
+        ):
             return None
         else:
             return self.requirements()

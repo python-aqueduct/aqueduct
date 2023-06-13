@@ -145,6 +145,8 @@ class Task(AbstractTask[T]):
     value returned by `run` as expected. The :class:`Artifact` is used to automatically
     store the value returned, according to sane default policies."""
 
+    _ALLOW_SAVE = True
+
     def __call__(self, *args, **kwargs) -> T:
         """Prepare the context, execute the `run` method, and return its result.
 
@@ -168,8 +170,9 @@ class Task(AbstractTask[T]):
             _logger.info(f"Running task {self}")
             result = self.run(*args, **kwargs)
 
-            _logger.info(f"Saving result of {self} to {artifact}")
-            self.save(artifact, result)
+            if self._ALLOW_SAVE:
+                _logger.info(f"Saving result of {self} to {artifact}")
+                self.save(artifact, result)
 
         return result
 

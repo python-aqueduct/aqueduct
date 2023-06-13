@@ -92,7 +92,7 @@ def count_tasks_to_run(task: "AbstractTask", remove_duplicates=True, use_cache=T
 
         return task
 
-    resolve_task_tree(task, handle_one_task, use_cache=use_cache)
+    resolve_task_tree(task, handle_one_task)
 
     if remove_duplicates:
         counts = {
@@ -105,11 +105,17 @@ def count_tasks_to_run(task: "AbstractTask", remove_duplicates=True, use_cache=T
     return counts
 
 
-def resolve_task_tree(
-    task: "AbstractTask",
-    fn: Callable[..., T],
-    use_cache=True,
-) -> T:
+def task_to_result(task: "AbstractTask[T]") -> T:
+    requirements = task._resolve_requirements()
+
+    if requirements is None:
+        return task()
+    else:
+        mapped_requirements = map_task_tree(requirements, task_to_result)
+        return task(mapped_requirements)
+
+
+def resolve_task_tree(task: "AbstractTask", fn: Callable[..., T]) -> T:
     """Apply function fn on all Task objects encountered while resolving the
     dependencies of `task`. If a Task has a cached value, do not expand its
     requirements, and map it immediately. Otherwise, map the task and provide its
