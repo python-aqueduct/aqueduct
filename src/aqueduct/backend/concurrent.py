@@ -47,7 +47,7 @@ def task_to_future_resolve(task: AbstractTask[T], executor: Executor) -> Future[
         else:
             return executor.submit(undill_and_run, cloudpickle.dumps(task))
 
-    return resolve_task_tree(task, map_task_to_future, use_cache=True)
+    return resolve_task_tree(task, map_task_to_future)
 
 
 class ConcurrentBackend(Backend):

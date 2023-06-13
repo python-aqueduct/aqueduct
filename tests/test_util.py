@@ -35,6 +35,9 @@ class AlwaysExistsArtifact(aq.Artifact):
     def exists(self):
         return True
 
+    def size(self):
+        return 0
+
 
 class TaskD(aq.Task):
     def artifact(self):
@@ -71,19 +74,19 @@ class TestCountTasks(unittest.TestCase):
     def test_cached(self):
         t = TaskE()
 
-        count = aq.count_tasks_to_run(t, use_cache=True)
+        count = aq.count_tasks_to_run(t)
 
         self.assertEqual({"TaskE": 1}, count)
 
     def test_keep_cached(self):
         t = TaskE()
-        count = aq.count_tasks_to_run(t, use_cache=False)
+        count = aq.count_tasks_to_run(t, ignore_cache=True)
         self.assertEqual({"TaskA": 1, "TaskD": 1, "TaskE": 1}, count)
 
     def test_root_is_cached(self):
         t = TaskD()
 
-        count = aq.count_tasks_to_run(t, use_cache=True)
+        count = aq.count_tasks_to_run(t)
 
         self.assertEqual({}, count)
 

@@ -4,12 +4,12 @@ import unittest
 import aqueduct as aq
 
 
-class TestingNotebookTask(aq.NotebookTask):
+class NotebookTaskWithPath(aq.NotebookTask):
     def add_to_sys(self) -> list[str]:
         return [pathlib.Path(__file__).parent]
 
 
-class ExampleNotebookTask(TestingNotebookTask):
+class ExampleNotebookTask(NotebookTaskWithPath):
     def __init__(self, a, b=2):
         self.a = a
         self.b = b
@@ -21,7 +21,7 @@ class ExampleNotebookTask(TestingNotebookTask):
         return "export_notebook_for_tests.ipynb"
 
 
-class ConfigNotebookTask(TestingNotebookTask):
+class ConfigNotebookTask(NotebookTaskWithPath):
     def notebook(self):
         return "notebook_with_config.ipynb"
 
@@ -29,7 +29,7 @@ class ConfigNotebookTask(TestingNotebookTask):
         return "export_notebook_with_config.ipynb"
 
 
-class EmptyNotebookTask(TestingNotebookTask):
+class EmptyNotebookTask(NotebookTaskWithPath):
     def notebook(self):
         return "empty_notebook.ipynb"
 

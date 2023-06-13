@@ -80,11 +80,13 @@ def map_task_tree(
     return map_type_in_tree(tree, AbstractTask, fn)
 
 
-def count_tasks_to_run(task: "AbstractTask", remove_duplicates=True, use_cache=True):
+def count_tasks_to_run(
+    task: "AbstractTask", remove_duplicates=True, ignore_cache=False
+):
     tasks_by_type = {}
 
     def handle_one_task(task: "AbstractTask", *args, **kwargs):
-        if not use_cache or not task.is_cached():
+        if ignore_cache or not task.is_cached():
             task_type = task.__class__.__qualname__
             list_of_type = tasks_by_type.get(task_type, [])
             list_of_type.append(task)
@@ -92,7 +94,7 @@ def count_tasks_to_run(task: "AbstractTask", remove_duplicates=True, use_cache=T
 
         return task
 
-    resolve_task_tree(task, handle_one_task)
+    resolve_task_tree(task, handle_one_task, ignore_cache=ignore_cache)
 
     if remove_duplicates:
         counts = {
@@ -115,14 +117,16 @@ def task_to_result(task: "AbstractTask[T]") -> T:
         return task(mapped_requirements)
 
 
-def resolve_task_tree(task: "AbstractTask", fn: Callable[..., T]) -> T:
+def resolve_task_tree(
+    task: "AbstractTask", fn: Callable[..., T], ignore_cache=False
+) -> T:
     """Apply function fn on all Task objects encountered while resolving the
     dependencies of `task`. If a Task has a cached value, do not expand its
     requirements, and map it immediately. Otherwise, map the task and provide its
     requirements are arguments."""
 
     def mapper(task: "AbstractTask") -> T:
-        requirements = task._resolve_requirements()
+        requirements = task._resolve_requirements(ignore_cache=ignore_cache)
 
         if requirements is None:
             return fn(task)
@@ -136,12 +140,14 @@ def resolve_task_tree(task: "AbstractTask", fn: Callable[..., T]) -> T:
 def tasks_in_module(
     module_name: str, package: Optional[str] = None
 ) -> set[Type["AbstractTask"]]:
+    from .task import AbstractTask
+
     mod = importlib.import_module(module_name, package=package)
     members = mod.__dict__
 
     tasks = []
     for k in members:
-        if inspect.isclass(members[k]) and issubclass(members[k], "AbstractTask"):
+        if inspect.isclass(members[k]) and issubclass(members[k], AbstractTask):
             if inspect.getmodule(members[k]) == mod:
                 tasks.append(members[k])
 

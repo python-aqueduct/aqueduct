@@ -1,4 +1,4 @@
-from typing import TypeAlias
+from typing import TypeAlias, Any
 
 import asyncio
 import base64
@@ -15,14 +15,6 @@ from ..config import get_config
 
 
 NotebookExportSpec: TypeAlias = ArtifactSpec
-
-
-class MyOutputHook:
-    def __call__(self, message):
-        if message["header"]["msg_type"] == "execute_result":
-            self.extracted = cloudpickle.loads(
-                base64.b64decode(message["content"]["data"]["text/plain"][2:-1])
-            )
 
 
 def encode_for_ipython(object) -> str:
@@ -58,6 +50,23 @@ class NotebookTask(AbstractTask):
         notebook_client = nbclient.NotebookClient(notebook_source, km=kernel_manager)
         kernel_client = asyncio.run(notebook_client.async_start_new_kernel_client())
 
+        self._prepare_kernel_with_injected_code(kernel_client)
+
+        try:
+            for i, c in enumerate(notebook_source["cells"]):
+                notebook_client.execute_cell(c, i)
+        except nbclient.exceptions.CellExecutionError as e:
+            raise e
+        finally:
+            export_spec = self.export()
+            if export_spec is not None:
+                nbformat.write(notebook_source, export_spec)
+
+        sinked_value = self._fetch_sinked_value(kernel_client)
+
+        return sinked_value
+
+    def _prepare_kernel_with_injected_code(self, kernel_client):
         add_sys_string = str([str(x) for x in self.add_to_sys()])
 
         task_load_program = object_to_payload_program(self)
@@ -78,24 +87,15 @@ class NotebookTask(AbstractTask):
             ]
         )
 
-        print(injected_code)
-
         response = asyncio.run(
             kernel_client.execute_interactive(
                 injected_code,
             )
         )
 
-        try:
-            for i, c in enumerate(notebook_source["cells"]):
-                notebook_client.execute_cell(c, i)
-        except nbclient.exceptions.CellExecutionError as e:
-            raise e
-        finally:
-            export_spec = self.export()
-            if export_spec is not None:
-                nbformat.write(notebook_source, export_spec)
+        print(response)
 
+    def _fetch_sinked_value(self, kernel_client) -> Any:
         response = asyncio.run(
             kernel_client.execute_interactive(
                 code="import aqueduct.notebook",
@@ -108,8 +108,6 @@ class NotebookTask(AbstractTask):
         aq_return_value_dict = response["content"]["user_expressions"][
             "aq_return_value"
         ]
-
-        print(aq_return_value_dict)
 
         if aq_return_value_dict["status"] != "ok":
             raise RuntimeError("Failed to try and recover return value from notebook.")
