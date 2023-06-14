@@ -1,18 +1,19 @@
-from typing import TypeAlias, Any, TypedDict, Optional, Callable
+from typing import TypeAlias, Any, TypedDict, Optional
 
 import asyncio
 import base64
+from aqueduct.artifact import Artifact
 import cloudpickle
-import functools
-import importlib
+import importlib.util
 import jupyter_client
-import nbclient
+import nbclient.client
+import nbclient.exceptions
 import nbconvert
 import nbformat
 import pathlib
-import traitlets.config
 
 from ..artifact import (
+    CompositeArtifact,
     TextStreamArtifactSpec,
     TextStreamArtifact,
     LocalStoreArtifact,
@@ -62,7 +63,7 @@ EXTENSION_OF_EXPORTER_NAME = {
 
 def resolve_notebook_export_spec(
     spec: NotebookExportSpec,
-) -> Callable[[nbformat.NotebookNode], None]:
+) -> tuple[TextStreamArtifact, nbconvert.Exporter]:
     if isinstance(spec, str):
         path = pathlib.Path(spec)
 
@@ -77,15 +78,24 @@ def resolve_notebook_export_spec(
         artifact = resolve_artifact_from_spec(spec["artifact"])
         exporter_class = nbconvert.get_exporter(spec["format"])
 
-    return functools.partial(export_notebook, artifact, exporter_class())
+    return artifact, exporter_class()
 
 
 class NotebookTask(AbstractTask):
     def notebook(self) -> str | pathlib.Path:
         raise NotImplementedError("Notebook Tasks must implement `notebook` method.")
 
-    def export(self) -> NotebookExportSpec:
+    def export(self) -> Optional[NotebookExportSpec]:
         return None
+
+    def artifact(self) -> Optional[Artifact]:
+        export_spec = self.export()
+
+        if export_spec is not None:
+            artifact, _ = resolve_notebook_export_spec(export_spec)
+            return artifact
+        else:
+            return None
 
     def add_to_sys(self) -> list[str]:
         return []
@@ -97,8 +107,10 @@ class NotebookTask(AbstractTask):
             notebook_source = nbformat.read(f, as_version=4)
 
         kernel_manager = jupyter_client.manager.AsyncKernelManager()
-        asyncio.run(kernel_manager.start_kernel())
-        notebook_client = nbclient.NotebookClient(notebook_source, km=kernel_manager)
+        asyncio.run(kernel_manager.start_kernel())  # type: ignore
+        notebook_client = nbclient.client.NotebookClient(
+            notebook_source, km=kernel_manager
+        )
         kernel_client = asyncio.run(notebook_client.async_start_new_kernel_client())
 
         self._prepare_kernel_with_injected_code(kernel_client)
@@ -111,8 +123,8 @@ class NotebookTask(AbstractTask):
         finally:
             export_spec = self.export()
             if export_spec is not None:
-                export_fn = resolve_notebook_export_spec(export_spec)
-                export_fn(notebook_source)
+                artifact, exporter = resolve_notebook_export_spec(export_spec)
+                export_notebook(artifact, exporter, notebook_source)
 
         sinked_value = self._fetch_sinked_value(kernel_client)
 
@@ -173,8 +185,13 @@ class NotebookTask(AbstractTask):
 
         return sinked_value
 
-    def _resolve_notebook(self) -> pathlib.Path():
-        path_of_module = pathlib.Path(importlib.util.find_spec(self.__module__).origin)
+    def _resolve_notebook(self) -> pathlib.Path:
+        module = importlib.util.find_spec(self.__module__)
+
+        if module is None or module.origin is None:
+            raise RuntimeError("Could not resolve notebook from specified path.")
+
+        path_of_module = pathlib.Path(module.origin)
         path = pathlib.Path(self.notebook())
         if path.is_absolute():
             return path

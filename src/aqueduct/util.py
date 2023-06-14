@@ -19,7 +19,7 @@ T = TypeVar("T")
 U = TypeVar("U")
 
 TypeTree: TypeAlias = Union[
-    list["TypeTree[T]"], tuple["TypeTree[T]"], dict[str, "TypeTree[T]"], T
+    list["TypeTree[T]"], tuple["TypeTree[T]"], dict[str, "TypeTree[T]"], T, None
 ]
 
 TaskTree: TypeAlias = TypeTree["AbstractTask"]

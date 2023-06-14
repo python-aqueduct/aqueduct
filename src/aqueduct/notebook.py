@@ -5,7 +5,6 @@ import cloudpickle
 
 from .config import Config
 from .task import AbstractTask
-from .task.util import compute_requirements
 from .util import map_task_tree
 
 T = TypeVar("T")
@@ -23,6 +22,12 @@ def get_task(*args, **kwargs) -> AbstractTask:
     global AQ_MAGIC_DEFINED_TASK_CLASS
 
     if AQ_INJECTED_TASK is None:
+        if AQ_MAGIC_DEFINED_TASK_CLASS is None:
+            raise RuntimeError(
+                "Unable to get task because the task class was not provided. Please use"
+                "%aq_task magic."
+            )
+
         AQ_INJECTED_TASK = AQ_MAGIC_DEFINED_TASK_CLASS(*args, **kwargs)
 
     return AQ_INJECTED_TASK
@@ -48,6 +53,10 @@ def get_requirements():
         raise RuntimeError(
             "No task was injected in current context. If you are inside a NotebookTask, make sure to use the %aq_task magic."
         )
+
+    requirement_spec = AQ_INJECTED_TASK.requirements()
+    if requirement_spec is None:
+        raise RuntimeError("No requirements specified for task.")
 
     requirements = AQ_INJECTED_TASK._resolve_requirements(ignore_cache=True)
 

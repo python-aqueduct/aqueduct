@@ -29,13 +29,23 @@ class Artifact(abc.ABC):
         raise NotImplementedError()
 
 
+def default_text_writer(object, stream: TextIO):
+    stream.write(object)
+
+
+def default_text_reader(stream: TextIO) -> str:
+    return stream.read()
+
+
 class TextStreamArtifact(Artifact, Generic[_T], abc.ABC):
     @abc.abstractmethod
-    def dump_text(self, o: _T, writer: Callable[[_T, TextIO], None]):
+    def dump_text(
+        self, o: _T, writer: Callable[[_T, TextIO], None] = default_text_writer
+    ):
         raise NotImplementedError()
 
     @abc.abstractclassmethod
-    def load_text(self, reader: Callable[[TextIO], _T]) -> _T:
+    def load_text(self, reader: Callable[[TextIO], str] = default_text_reader) -> str:
         raise NotImplementedError()
 
 
@@ -49,5 +59,5 @@ class StreamArtifact(Artifact, Generic[_T], abc.ABC):
         raise NotImplementedError()
 
 
-ArtifactSpec: TypeAlias = Artifact | str | None
+ArtifactSpec: TypeAlias = str | Artifact
 TextStreamArtifactSpec: TypeAlias = str | TextStreamArtifact

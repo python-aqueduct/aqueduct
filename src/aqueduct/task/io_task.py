@@ -3,6 +3,7 @@ from typing import TypeVar, Optional
 
 import logging
 
+from ..artifact import resolve_artifact_from_spec
 from ..config import get_deep_key, get_config
 from ..artifact import Artifact
 from .abstract_task import AbstractTask
@@ -38,7 +39,13 @@ class IOTask(AbstractTask[T]):
             or `run`. Disable this behavior by setting the `aqueduct.check_storage`
             configuraiton option to `False`."""
         global_config = get_config()
-        artifact = self._resolve_artifact()
+
+        artifact_spec = self.artifact()
+        artifact = (
+            resolve_artifact_from_spec(artifact_spec)
+            if artifact_spec is not None
+            else None
+        )
 
         force_root = getattr(self, "_aq_force_root", False)
 

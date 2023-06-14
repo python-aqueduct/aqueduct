@@ -1,6 +1,7 @@
-from typing import Mapping, Type, TYPE_CHECKING
+from typing import MutableMapping, Type, TYPE_CHECKING
 
 from .artifact import Artifact
+from .base import resolve_artifact_from_spec
 from .composite import CompositeArtifact
 from ..util import map_task_tree, convert_size
 
@@ -9,7 +10,7 @@ if TYPE_CHECKING:
 
 
 def add_artifact_to_report(
-    artifact: Artifact, report: Mapping[Type[Artifact], tuple[int, int]]
+    artifact: Artifact, report: MutableMapping[Type[Artifact], tuple[int, int]]
 ):
     if isinstance(artifact, CompositeArtifact):
         count, _ = report.get(type(artifact), (0, 0))
@@ -24,15 +25,18 @@ def add_artifact_to_report(
         report[type(artifact)] = new_stats
 
 
-def artifact_report(task: "AbstractTask") -> Mapping[Type[Artifact], tuple[int, str]]:
+def artifact_report(
+    task: "AbstractTask",
+) -> MutableMapping[Type[Artifact], tuple[int, str]]:
     """Produce a small report about the artifacts associated with a task and its
     dependencies."""
     artifact_statistics = {}
 
     def mapper(task: "AbstractTask"):
-        artifact = task._resolve_artifact()
+        spec = task.artifact()
 
-        if artifact is not None and artifact.exists():
+        if spec is not None:
+            artifact = resolve_artifact_from_spec(spec)
             add_artifact_to_report(artifact, artifact_statistics)
 
     map_task_tree(task, mapper)

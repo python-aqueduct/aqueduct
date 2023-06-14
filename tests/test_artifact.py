@@ -27,9 +27,6 @@ class TestResolveArtifact(unittest.TestCase):
 
         self.assertEqual(artifact, returned)
 
-    def test_none(self):
-        self.assertIsNone(resolve_artifact_from_spec(None))
-
 
 class TestLocalStoreArtifact(unittest.TestCase):
     def setUp(self):

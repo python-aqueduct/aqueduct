@@ -45,7 +45,7 @@ class LocalFilesystemArtifact(TextStreamArtifact, StreamArtifact):
             writer(object, f)
 
     def load_text(self, reader: Callable[[TextIO], _T] = read_str) -> _T:
-        with self.path.open("rb") as f:
+        with self.path.open("r") as f:
             return reader(f)
 
     def dump_text(self, object: _T, writer: Callable[[_T, TextIO], None] = write_str):

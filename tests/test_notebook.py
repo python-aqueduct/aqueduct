@@ -7,19 +7,16 @@ import aqueduct as aq
 
 class NotebookTaskWithPath(aq.NotebookTask):
     def add_to_sys(self) -> list[str]:
-        return [pathlib.Path(__file__).parent]
+        return [str(pathlib.Path(__file__).parent)]
 
 
 class ExampleNotebookTask(NotebookTaskWithPath):
-    def __init__(self, a, b=2):
+    def __init__(self, a, b={}):
         self.a = a
         self.b = b
 
     def notebook(self):
         return "notebook_for_tests.ipynb"
-
-    def export(self):
-        return "export_notebook_for_tests.ipynb"
 
 
 class ConfigNotebookTask(NotebookTaskWithPath):

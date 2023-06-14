@@ -1,4 +1,4 @@
-from typing import Any, Callable, Type, TypeVar
+from typing import Any, Callable, Type, TypeVar, Optional
 
 import inspect
 import logging
@@ -13,10 +13,11 @@ from ..artifact import (
     InMemoryArtifact,
     LocalFilesystemArtifact,
     CompositeArtifact,
+    resolve_artifact_from_spec,
 )
 from .abstract_task import AbstractTask
 
-T = TypeVar("T")
+_T = TypeVar("_T")
 
 
 _logger = logging.getLogger(__name__)
@@ -63,14 +64,14 @@ DEFAULT_READER = pickle_load_file
 DEFAULT_WRITER = pickle_write_to_file
 
 
-def resolve_writer(t: Type[T] | None) -> Callable[[T, str], None]:
+def resolve_writer(t: Type[_T] | None) -> Callable[[_T, str], None]:
     if t is not None:
         return WRITERS.get(t, DEFAULT_WRITER)
     else:
         return DEFAULT_WRITER
 
 
-def resolve_reader(t: Type[T] | None, filename: pathlib.Path) -> Callable[[str], T]:
+def resolve_reader(t: Type[_T] | None, filename: pathlib.Path) -> Callable[[str], _T]:
     suffix = filename.suffix
 
     if t is not None:
@@ -92,8 +93,8 @@ def store_artifact(artifact: Artifact, object: Any):
 
 def store_artifact_filesystem(
     artifact: LocalFilesystemArtifact,
-    object: T,
-    object_type_hint: Type[T] | None = None,
+    object: _T,
+    object_type_hint: Type[_T] | None = None,
 ):
     path = artifact.path
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -140,14 +141,14 @@ def load_artifact_memory(artifact: InMemoryArtifact):
     return artifact.store[artifact.key]
 
 
-class Task(AbstractTask[T]):
+class Task(AbstractTask[_T]):
     """Standard implementation of :class:`AbstractTask`. When called, it returns the
     value returned by `run` as expected. The :class:`Artifact` is used to automatically
     store the value returned, according to sane default policies."""
 
     _ALLOW_SAVE = True
 
-    def __call__(self, *args, **kwargs) -> T:
+    def __call__(self, *args, **kwargs) -> Optional[_T]:
         """Prepare the context, execute the `run` method, and return its result.
 
         If an artifact is specified, save the result before returning. If an artifact is
@@ -156,30 +157,32 @@ class Task(AbstractTask[T]):
 
         Returns
             The result of `run`."""
-        artifact = self._resolve_artifact()
+        artifact_spec = self.artifact()
 
         force_run = getattr(self, "_aq_force_root", False)
 
-        if not artifact:
+        if artifact_spec is None:
             _logger.info(f"Running task {self}")
             result = self.run(*args, **kwargs)
-        elif artifact and artifact.exists() and not force_run:
-            _logger.info(f"Loading result of {self} from {artifact}")
-            result = self.load(artifact)
         else:
-            _logger.info(f"Running task {self}")
-            result = self.run(*args, **kwargs)
+            artifact = resolve_artifact_from_spec(artifact_spec)
+            if artifact.exists() and not force_run:
+                _logger.info(f"Loading result of {self} from {artifact}")
+                result = self.load(artifact)
+            else:
+                _logger.info(f"Running task {self}")
+                result = self.run(*args, **kwargs)
 
-            if self._ALLOW_SAVE:
-                _logger.info(f"Saving result of {self} to {artifact}")
-                self.save(artifact, result)
+                if self._ALLOW_SAVE and result is not None:
+                    _logger.info(f"Saving result of {self} to {artifact}")
+                    self.save(artifact, result)
 
         return result
 
-    def run(self, *args, **kwargs):
+    def run(self, *args, **kwargs) -> Optional[_T]:
         pass
 
-    def save(self, artifact: Artifact, object: T):
+    def save(self, artifact: Artifact, object: _T):
         """Save `object` according to the specification of `artifact`.
 
         When the Task is executed, this method is called to save the artifact if
@@ -191,7 +194,7 @@ class Task(AbstractTask[T]):
             object: The task result."""
         store_artifact(artifact, object)
 
-    def load(self, artifact: Artifact) -> T:
+    def load(self, artifact: Artifact) -> _T:
         """Load an artifact and return it.
 
         If an artifact is specified, this is called to load the artifact from cache

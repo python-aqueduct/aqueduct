@@ -1,6 +1,6 @@
 from typing import cast
 
-import IPython
+from IPython.core.interactiveshell import InteractiveShell
 import importlib
 
 from IPython.core.magic import (
@@ -59,7 +59,7 @@ class AqueductMagics(Magics):
         set_config(cfg)
 
 
-def load_ipython_extension(ipython: IPython.InteractiveShell):
+def load_ipython_extension(ipython: InteractiveShell):
     ipython.register_magics(AqueductMagics)
 
 

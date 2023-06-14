@@ -7,6 +7,7 @@ from typing import (
     Union,
     Optional,
     TYPE_CHECKING,
+    overload,
 )
 
 import inspect
@@ -53,7 +54,7 @@ class AbstractTask(Generic[T], metaclass=WrapInitMeta):
         the resolved requirements are passed as the first positional argument."""
         raise NotImplementedError()
 
-    def artifact(self) -> ArtifactSpec:
+    def artifact(self) -> Optional[ArtifactSpec]:
         """Describe the artifact produced by `run`. See :class:`Artifact` for more
         details.
 
@@ -67,18 +68,18 @@ class AbstractTask(Generic[T], metaclass=WrapInitMeta):
                 the object."""
         return None
 
-    def _resolve_artifact(self) -> Artifact | None:
-        spec = self.artifact()
-        return resolve_artifact_from_spec(spec)
-
     def is_cached(self) -> bool:
         """Indicates if the Task is currently cached.
 
         Returns:
             A boolean indicating if there exists a stored artifact as specified by the
             `artifact` method."""
-        artifact = self._resolve_artifact()
-        return artifact is not None and artifact.exists()
+        artifact_spec = self.artifact()
+
+        return (
+            artifact_spec is not None
+            and resolve_artifact_from_spec(artifact_spec).exists()
+        )
 
     def requirements(self) -> Optional["TaskTree"]:
         """Subclass this to express the Tasks that are required for this Task to run.
@@ -94,17 +95,16 @@ class AbstractTask(Generic[T], metaclass=WrapInitMeta):
         return None
 
     def _resolve_requirements(self, ignore_cache=False) -> Optional["TaskTree"]:
-        artifact = self._resolve_artifact()
+        artifact_spec = self.artifact()
 
-        force_run = getattr(self, "_aq_force_root", False)
+        if artifact_spec is not None:
+            artifact = resolve_artifact_from_spec(artifact_spec)
+            force_run = getattr(self, "_aq_force_root", False)
 
-        if (
-            artifact is not None
-            and artifact.exists()
-            and not force_run
-            and not ignore_cache
-        ):
-            return None
+            if artifact.exists() and not force_run and not ignore_cache:
+                return None
+            else:
+                return self.requirements()
         else:
             return self.requirements()
 

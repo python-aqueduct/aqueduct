@@ -2,7 +2,12 @@ import unittest
 
 import pandas as pd
 
-from aqueduct.artifact import ArtifactSpec, InMemoryArtifact, CompositeArtifact
+from aqueduct.artifact import (
+    ArtifactSpec,
+    InMemoryArtifact,
+    CompositeArtifact,
+    resolve_artifact_from_spec,
+)
 from aqueduct.config import set_config, resolve_config_from_spec
 from aqueduct.task import (
     IOTask,
@@ -177,7 +182,7 @@ class TestAggregateTask(unittest.TestCase):
                 return [TaskWithoutArtifact(), TaskWithoutArtifact()]
 
         t = Aggregate()
-        self.assertIsNone(t._resolve_artifact())
+        self.assertIsNone(t.artifact())
 
     def test_with_artifacts(self):
         class Aggregate(AggregateTask):
@@ -185,6 +190,9 @@ class TestAggregateTask(unittest.TestCase):
                 return [TaskWithArtifact(), TaskWithArtifact()]
 
         t = Aggregate()
-        resolved_artifact = t._resolve_artifact()
+        spec = t.artifact()
+        assert spec is not None
+        resolved_artifact = resolve_artifact_from_spec(spec)
+
         self.assertIsInstance(resolved_artifact, CompositeArtifact)
         self.assertEqual(2, len(resolved_artifact.artifacts))
