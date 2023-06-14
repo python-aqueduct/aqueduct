@@ -4,6 +4,7 @@ import base64
 import cloudpickle
 import logging
 
+from .backend import Backend, ImmediateBackend
 from .config import Config
 from .task import AbstractTask
 from .util import map_task_tree
@@ -45,7 +46,7 @@ def mapper(task: AbstractTask[T]) -> T:
         return task(reqs)
 
 
-def get_requirements():
+def get_requirements(backend: Optional[Backend] = None):
     global AQ_INJECTED_TASK
     global AQ_INJECTED_REQUIREMENTS
 
@@ -64,7 +65,9 @@ def get_requirements():
 
     requirements = AQ_INJECTED_TASK._resolve_requirements(ignore_cache=True)
 
-    return map_task_tree(requirements, mapper)
+    backend = backend if backend is not None else ImmediateBackend()
+
+    return backend.execute(requirements)
 
 
 def sink(object):

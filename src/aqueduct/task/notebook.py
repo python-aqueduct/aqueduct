@@ -17,7 +17,6 @@ import tqdm
 from aqueduct.util import TaskTree
 
 from ..artifact import (
-    CompositeArtifact,
     TextStreamArtifactSpec,
     TextStreamArtifact,
     LocalStoreArtifact,
@@ -169,7 +168,7 @@ class NotebookTask(AbstractTask):
         sinked_value = self._fetch_sinked_value(kernel_client)
 
         future = kernel_manager.shutdown_kernel()
-        asyncio.run(future)
+        asyncio.run(future)  # type: ignore
 
         return sinked_value
 
