@@ -1,15 +1,24 @@
-from typing import TypeAlias
+from typing import TypeAlias, BinaryIO, TextIO, Callable, TypeVar
 
 import datetime
 import pathlib
 
-from .artifact import Artifact
+from .artifact import StreamArtifact, TextStreamArtifact
 from ..config import get_aqueduct_config
 
+_T = TypeVar("_T")
 PathSpec: TypeAlias = pathlib.Path | str
 
 
-class LocalFilesystemArtifact(Artifact):
+def write_str(o: str, stream: TextIO):
+    stream.write(o)
+
+
+def read_str(stream: TextIO) -> str:
+    return stream.read()
+
+
+class LocalFilesystemArtifact(TextStreamArtifact, StreamArtifact):
     """Define artifacts living on a local filesystem."""
 
     def __init__(self, path: PathSpec):
@@ -26,6 +35,22 @@ class LocalFilesystemArtifact(Artifact):
 
     def size(self) -> int:
         return self.path.stat().st_size
+
+    def load(self, reader: Callable[[BinaryIO], _T]) -> _T:
+        with self.path.open("rb") as f:
+            return reader(f)
+
+    def dump(self, object: _T, writer: Callable[[_T, BinaryIO], None]):
+        with self.path.open("wb") as f:
+            writer(object, f)
+
+    def load_text(self, reader: Callable[[TextIO], _T] = read_str) -> _T:
+        with self.path.open("rb") as f:
+            return reader(f)
+
+    def dump_text(self, object: _T, writer: Callable[[_T, TextIO], None] = write_str):
+        with self.path.open("w") as f:
+            writer(object, f)
 
 
 class LocalStoreArtifact(LocalFilesystemArtifact):

@@ -80,6 +80,6 @@ def create_dask_graph(task: AbstractTask, client: DaskClientProxy) -> Future:
 
         return future
 
-    future = resolve_task_tree(task, task_to_dask_future, use_cache=True)
+    future = resolve_task_tree(task, task_to_dask_future)
 
     return future

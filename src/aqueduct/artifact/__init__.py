@@ -4,32 +4,28 @@ import logging
 from typing import TypeVar
 
 
-from .artifact import Artifact, ArtifactSpec
+from .artifact import (
+    Artifact,
+    ArtifactSpec,
+    TextStreamArtifact,
+    StreamArtifact,
+    TextStreamArtifactSpec,
+)
+from .base import resolve_artifact_from_spec
 from .composite import CompositeArtifact
 from .inmemory import InMemoryArtifact
 from .local import LocalFilesystemArtifact, LocalStoreArtifact
 from .util import artifact_report
 
-_logger = logging.getLogger(__name__)
-
-T = TypeVar("T")
-
-
-def resolve_artifact_from_spec(
-    spec: ArtifactSpec,
-) -> Artifact | None:
-    if isinstance(spec, Artifact) or spec is None:
-        return spec
-    elif isinstance(spec, str):
-        return LocalFilesystemArtifact(spec)
-    else:
-        raise RuntimeError(f"Could not resolve artifact spec: {spec}")
-
 
 __all__ = [
     "Artifact",
+    "ArtifactSpec",
     "resolve_artifact_from_spec",
     "LocalFilesystemArtifact",
     "LocalStoreArtifact",
     "InMemoryArtifact",
+    "TextStreamArtifact",
+    "TextStreamArtifactSpec",
+    "StreamArtifact",
 ]

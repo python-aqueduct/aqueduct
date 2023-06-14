@@ -23,7 +23,6 @@ def get_task(*args, **kwargs) -> AbstractTask:
     global AQ_MAGIC_DEFINED_TASK_CLASS
 
     if AQ_INJECTED_TASK is None:
-        print("No injected task found, creating one.")
         AQ_INJECTED_TASK = AQ_MAGIC_DEFINED_TASK_CLASS(*args, **kwargs)
 
     return AQ_INJECTED_TASK

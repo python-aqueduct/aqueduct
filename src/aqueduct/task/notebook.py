@@ -1,20 +1,33 @@
-from typing import TypeAlias, Any
+from typing import TypeAlias, Any, TypedDict, Optional, Callable
 
 import asyncio
 import base64
 import cloudpickle
+import functools
 import importlib
 import jupyter_client
 import nbclient
+import nbconvert
 import nbformat
 import pathlib
+import traitlets.config
 
-from ..artifact import ArtifactSpec
+from ..artifact import (
+    TextStreamArtifactSpec,
+    TextStreamArtifact,
+    LocalStoreArtifact,
+    resolve_artifact_from_spec,
+)
 from .abstract_task import AbstractTask
 from ..config import get_config
 
 
-NotebookExportSpec: TypeAlias = ArtifactSpec
+class FullNotebookExportSpec(TypedDict):
+    format: str
+    artifact: TextStreamArtifactSpec
+
+
+NotebookExportSpec: TypeAlias = str | TextStreamArtifactSpec | FullNotebookExportSpec
 
 
 def encode_for_ipython(object) -> str:
@@ -27,6 +40,44 @@ def decode_program_string(base64_payload):
 
 def object_to_payload_program(object) -> str:
     return decode_program_string(encode_for_ipython(object))
+
+
+def export_notebook(
+    artifact: TextStreamArtifact,
+    exporter: nbconvert.Exporter,
+    notebook: nbformat.NotebookNode,
+):
+    exported, _ = exporter.from_notebook_node(notebook)
+    artifact.dump_text(exported)
+
+
+EXTENSION_OF_EXPORTER_NAME = {
+    ".ipynb": "notebook",
+    ".html": "html",
+    ".md": "markdown",
+    ".rst": "rst",
+    ".pdf": "pdf",
+}
+
+
+def resolve_notebook_export_spec(
+    spec: NotebookExportSpec,
+) -> Callable[[nbformat.NotebookNode], None]:
+    if isinstance(spec, str):
+        path = pathlib.Path(spec)
+
+        exporter_name = EXTENSION_OF_EXPORTER_NAME.get(path.suffix, "notebook")
+
+        artifact = LocalStoreArtifact(spec)
+        exporter_class = nbconvert.get_exporter(exporter_name)
+    elif isinstance(spec, TextStreamArtifact):
+        artifact = spec
+        exporter_class = nbconvert.get_exporter("notebook")
+    elif isinstance(spec, (dict, TypedDict)):
+        artifact = resolve_artifact_from_spec(spec["artifact"])
+        exporter_class = nbconvert.get_exporter(spec["format"])
+
+    return functools.partial(export_notebook, artifact, exporter_class())
 
 
 class NotebookTask(AbstractTask):
@@ -60,7 +111,8 @@ class NotebookTask(AbstractTask):
         finally:
             export_spec = self.export()
             if export_spec is not None:
-                nbformat.write(notebook_source, export_spec)
+                export_fn = resolve_notebook_export_spec(export_spec)
+                export_fn(notebook_source)
 
         sinked_value = self._fetch_sinked_value(kernel_client)
 

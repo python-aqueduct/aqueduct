@@ -1,5 +1,6 @@
 import pathlib
 import unittest
+import tempfile
 
 import aqueduct as aq
 
@@ -25,13 +26,21 @@ class ConfigNotebookTask(NotebookTaskWithPath):
     def notebook(self):
         return "notebook_with_config.ipynb"
 
-    def export(self):
-        return "export_notebook_with_config.ipynb"
-
 
 class EmptyNotebookTask(NotebookTaskWithPath):
     def notebook(self):
         return "empty_notebook.ipynb"
+
+
+class NotebookWithExport(NotebookTaskWithPath):
+    def __init__(self, export_path):
+        self.export_path = export_path
+
+    def notebook(self):
+        return "empty_notebook.ipynb"
+
+    def export(self):
+        return self.export_path
 
 
 class TestNotebookIntegration(unittest.TestCase):
@@ -59,3 +68,31 @@ class TestNotebookIntegration(unittest.TestCase):
         retval = t.result()
 
         self.assertIsNone(retval)
+
+
+class TextNotebookExport(unittest.TestCase):
+    def setUp(self):
+        self.tmp_dir = pathlib.Path(tempfile.mkdtemp())
+
+    def export_with_filename(self, filename):
+        export_path = self.tmp_dir / filename
+        t = NotebookWithExport(str(export_path))
+
+        t.result()
+
+        self.assertTrue(export_path.is_file())
+        self.assertLess(0, export_path.stat().st_size)
+
+        export_path.unlink()
+
+    def test_export_md(self):
+        self.export_with_filename("test_notebook.md")
+
+    def test_export_html(self):
+        self.export_with_filename("test_notebook.html")
+
+    def test_export_ipynb(self):
+        self.export_with_filename("test_notebook.ipynb")
+
+    def tearDown(self):
+        self.tmp_dir.rmdir()
