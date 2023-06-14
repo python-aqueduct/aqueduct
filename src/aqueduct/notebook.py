@@ -2,12 +2,15 @@ from typing import Optional, Type, TypeVar, Any
 
 import base64
 import cloudpickle
+import logging
 
 from .config import Config
 from .task import AbstractTask
 from .util import map_task_tree
 
 T = TypeVar("T")
+
+_logger = logging.getLogger(__name__)
 
 AQ_INJECTED_CONFIG: Optional[Config] = None
 AQ_INJECTED_TASK: Optional[AbstractTask] = None
@@ -47,6 +50,7 @@ def get_requirements():
     global AQ_INJECTED_REQUIREMENTS
 
     if AQ_INJECTED_REQUIREMENTS is not None:
+        _logger.info("Using injected requirements.")
         return AQ_INJECTED_REQUIREMENTS
 
     if AQ_INJECTED_TASK is None:

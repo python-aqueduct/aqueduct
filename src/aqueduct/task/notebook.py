@@ -6,17 +6,22 @@ from aqueduct.artifact import Artifact
 import cloudpickle
 import importlib.util
 import jupyter_client
+import logging
 import nbclient.client
 import nbclient.exceptions
 import nbconvert
 import nbformat
 import pathlib
+import tqdm
+
+from aqueduct.util import TaskTree
 
 from ..artifact import (
     CompositeArtifact,
     TextStreamArtifactSpec,
     TextStreamArtifact,
     LocalStoreArtifact,
+    LocalFilesystemArtifact,
     resolve_artifact_from_spec,
 )
 from .abstract_task import AbstractTask
@@ -31,6 +36,9 @@ class FullNotebookExportSpec(TypedDict):
 NotebookExportSpec: TypeAlias = str | TextStreamArtifactSpec | FullNotebookExportSpec
 
 
+_logger = logging.getLogger(__name__)
+
+
 def encode_for_ipython(object) -> str:
     return base64.b64encode(cloudpickle.dumps(object)).decode()
 
@@ -39,7 +47,7 @@ def decode_program_string(base64_payload):
     return f'cloudpickle.loads(base64.b64decode("{base64_payload}"))'
 
 
-def object_to_payload_program(object) -> str:
+def object_to_payload_program(object: Optional[Any] = None) -> str:
     return decode_program_string(encode_for_ipython(object))
 
 
@@ -64,13 +72,19 @@ EXTENSION_OF_EXPORTER_NAME = {
 def resolve_notebook_export_spec(
     spec: NotebookExportSpec,
 ) -> tuple[TextStreamArtifact, nbconvert.Exporter]:
-    if isinstance(spec, str):
+    if isinstance(spec, (str, pathlib.Path)):
         path = pathlib.Path(spec)
 
         exporter_name = EXTENSION_OF_EXPORTER_NAME.get(path.suffix, "notebook")
 
         artifact = LocalStoreArtifact(spec)
         exporter_class = nbconvert.get_exporter(exporter_name)
+    elif isinstance(spec, LocalFilesystemArtifact):
+        suffix = spec.path.suffix
+        exporter_name = EXTENSION_OF_EXPORTER_NAME.get(suffix, "notebook")
+        exporter_class = nbconvert.get_exporter(exporter_name)
+
+        artifact = spec
     elif isinstance(spec, TextStreamArtifact):
         artifact = spec
         exporter_class = nbconvert.get_exporter("notebook")
@@ -82,6 +96,12 @@ def resolve_notebook_export_spec(
 
 
 class NotebookTask(AbstractTask):
+    REQUIREMENTS_INJECTION = False
+    """Tells the task to inject the requirements into the kernel from memory. Since the
+    requirement objects need to be serialized and deserialized, this can be very slow.
+    If False, no requirements are injected, and the requirements are computed directly
+    inside the Jupyter kernel. Defaults: `False`."""
+
     def notebook(self) -> str | pathlib.Path:
         raise NotImplementedError("Notebook Tasks must implement `notebook` method.")
 
@@ -100,7 +120,17 @@ class NotebookTask(AbstractTask):
     def add_to_sys(self) -> list[str]:
         return []
 
-    def __call__(self):
+    def _resolve_requirements(self, ignore_cache=False) -> TaskTree:
+        if self.REQUIREMENTS_INJECTION == False and not ignore_cache:
+            _logger.info(
+                f"Skipping requirements for NotebookTask {self.__class__.__qualname__}."
+                "Requirements will be loaded in-kernel."
+            )
+            return None
+        else:
+            return super()._resolve_requirements(ignore_cache=ignore_cache)
+
+    def __call__(self, requirements=None):
         notebook_path = self._resolve_notebook()
 
         with open(notebook_path) as f:
@@ -113,10 +143,20 @@ class NotebookTask(AbstractTask):
         )
         kernel_client = asyncio.run(notebook_client.async_start_new_kernel_client())
 
-        self._prepare_kernel_with_injected_code(kernel_client)
+        if self.REQUIREMENTS_INJECTION:
+            injected_requirements = requirements
+        else:
+            injected_requirements = None
+
+        self._prepare_kernel_with_injected_code(kernel_client, injected_requirements)
 
         try:
-            for i, c in enumerate(notebook_source["cells"]):
+            _logger.info("Executing notebook...")
+            for i, c in tqdm.tqdm(
+                enumerate(notebook_source["cells"]),
+                total=len(notebook_source["cells"]),
+                unit="cell",
+            ):
                 notebook_client.execute_cell(c, i)
         except nbclient.exceptions.CellExecutionError as e:
             raise e
@@ -128,17 +168,25 @@ class NotebookTask(AbstractTask):
 
         sinked_value = self._fetch_sinked_value(kernel_client)
 
+        future = kernel_manager.shutdown_kernel()
+        asyncio.run(future)
+
         return sinked_value
 
-    def _prepare_kernel_with_injected_code(self, kernel_client):
+    def _prepare_kernel_with_injected_code(self, kernel_client, requirements):
         add_sys_string = str([str(x) for x in self.add_to_sys()])
 
+        _logger.info("Serializing task...")
         task_load_program = object_to_payload_program(self)
 
+        _logger.info("Serializing requirements...")
+        req_load_program = object_to_payload_program(requirements)
+
+        _logger.info("Serializing config...")
         cfg = get_config()
         config_load_program = object_to_payload_program(cfg)
 
-        injected_code = ";".join(
+        injected_code = ";\n".join(
             [
                 "import sys",
                 f"sys.path.extend({add_sys_string})",
@@ -147,17 +195,19 @@ class NotebookTask(AbstractTask):
                 "import cloudpickle",
                 "import base64",
                 f"aqueduct.notebook.AQ_INJECTED_TASK = {task_load_program}",
+                f"aqueduct.notebook.AQ_INJECTED_REQUIREMENTS = {req_load_program}",
                 f"aqueduct.set_config({config_load_program})",
             ]
         )
 
+        _logger.info("Injecting code...")
         response = asyncio.run(
             kernel_client.execute_interactive(
                 injected_code,
-            )
+            ),
+            debug=False,
         )
-
-        print(response)
+        _logger.info("Done preparing kernel.")
 
     def _fetch_sinked_value(self, kernel_client) -> Any:
         response = asyncio.run(
