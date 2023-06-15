@@ -42,6 +42,11 @@ class AbstractTask(Generic[T], metaclass=WrapInitMeta):
         :ref:`configuration` for more details."""
         self._aq_force_root = False
 
+        # These two values are set by the wrapper around __init__ introduced by
+        # `WrapInitMeta`.
+        self._args = ""
+        self._kwargs = ""
+
     def __call__(self, *args, **kwargs):
         """Prepare the context and call `run`. Both class:`Task` and :class:`IOTask`
         overwrite this."""
@@ -129,7 +134,12 @@ class AbstractTask(Generic[T], metaclass=WrapInitMeta):
         # confusing, but in return the user does not have to worry about calling
         # super().__init__().
         return "-".join(
-            [self.__class__.__qualname__, self._fully_qualified_name(), self._args_hash]  # type: ignore
+            [
+                self.__class__.__qualname__,
+                self._fully_qualified_name(),
+                self.__str__(),
+                self._args_hash,  # type: ignore
+            ]
         )
 
     def result(self, backend: Optional["Backend"] = None) -> T:
@@ -151,8 +161,7 @@ class AbstractTask(Generic[T], metaclass=WrapInitMeta):
 
     def __str__(self):
         task_name = self.__class__.__qualname__
-        params = self.config()
-        return f"{task_name}({params})"
+        return f"{task_name}(args={self._args[1:]}, kwargs={self._kwargs})"
 
     def set_force_root(self, value=True):
         self._aq_force_root = value

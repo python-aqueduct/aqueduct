@@ -4,7 +4,7 @@ import base64
 import cloudpickle
 import logging
 
-from .backend import Backend, ImmediateBackend
+from .backend import BackendSpec, resolve_backend_from_spec
 from .config import Config
 from .task import AbstractTask
 from .util import map_task_tree
@@ -46,7 +46,7 @@ def mapper(task: AbstractTask[T]) -> T:
         return task(reqs)
 
 
-def get_requirements(backend: Optional[Backend] = None):
+def get_requirements(backend: Optional[BackendSpec] = None):
     global AQ_INJECTED_TASK
     global AQ_INJECTED_REQUIREMENTS
 
@@ -64,8 +64,7 @@ def get_requirements(backend: Optional[Backend] = None):
         raise RuntimeError("No requirements specified for task.")
 
     requirements = AQ_INJECTED_TASK._resolve_requirements(ignore_cache=True)
-
-    backend = backend if backend is not None else ImmediateBackend()
+    backend = resolve_backend_from_spec(backend)
 
     return backend.execute(requirements)
 

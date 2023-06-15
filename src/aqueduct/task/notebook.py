@@ -178,7 +178,6 @@ class NotebookTask(AbstractTask):
         _logger.info("Serializing task...")
         task_load_program = object_to_payload_program(self)
 
-        _logger.info("Serializing requirements...")
         req_load_program = object_to_payload_program(requirements)
 
         _logger.info("Serializing config...")

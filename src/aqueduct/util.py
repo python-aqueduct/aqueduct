@@ -1,6 +1,7 @@
 import importlib
 import math
 import inspect
+import tqdm
 from typing import (
     Any,
     Callable,
@@ -26,7 +27,11 @@ TaskTree: TypeAlias = TypeTree["AbstractTask"]
 
 
 def map_type_in_tree(
-    tree: TypeTree[T], type: Type[T], fn: Callable[[T], U]
+    tree: TypeTree[T],
+    type: Type[T],
+    fn: Callable[[T], U],
+    on_expand: Optional[Callable[[int], None]] = None,
+    on_resolve: Optional[Callable[[], None]] = None,
 ) -> TypeTree[U]:
     """Recursively explore data structures containing T, and map all T
     found using `fn`.
@@ -39,13 +44,22 @@ def map_type_in_tree(
         An equivalent data structure, where all the T have been mapped using
         `fn`."""
     if isinstance(tree, list):
+        if on_expand is not None:
+            on_expand(len(tree))
         return map_type_in_list(tree, type, fn)
     elif isinstance(tree, tuple):
+        if on_expand is not None:
+            on_expand(len(tree))
         return map_type_in_tuple(tree, type, fn)
     elif isinstance(tree, dict):
+        if on_expand is not None:
+            on_expand(len(tree))
         return map_type_in_dict(tree, type, fn)
     elif isinstance(tree, type):
-        return fn(tree)
+        to_return = fn(tree)
+        if on_resolve:
+            on_resolve()
+        return to_return
     else:
         raise TypeError("Unexpected type inside Tree")
 
@@ -63,7 +77,10 @@ def map_type_in_dict(input: dict[T, Any], type, fn) -> dict[T, Any]:
 
 
 def map_task_tree(
-    tree: TypeTree["AbstractTask"], fn: Callable[["AbstractTask"], U]
+    tree: TypeTree["AbstractTask"],
+    fn: Callable[["AbstractTask"], U],
+    on_expand: Optional[Callable[[int], None]] = None,
+    on_resolve: Optional[Callable[[], None]] = None,
 ) -> TypeTree[U]:
     """Recursively explore data structures containing Tasks, and map all Tasks
     found using `fn`.
@@ -77,7 +94,9 @@ def map_task_tree(
         `fn`."""
     from .task import AbstractTask
 
-    return map_type_in_tree(tree, AbstractTask, fn)
+    return map_type_in_tree(
+        tree, AbstractTask, fn, on_expand=on_expand, on_resolve=on_resolve
+    )
 
 
 def count_tasks_to_run(
@@ -118,23 +137,39 @@ def task_to_result(task: "AbstractTask[T]") -> T:
 
 
 def resolve_task_tree(
-    task: "AbstractTask", fn: Callable[..., T], ignore_cache=False
-) -> T:
+    work: TaskTree,
+    fn: Callable,
+    ignore_cache=False,
+) -> Any:
     """Apply function fn on all Task objects encountered while resolving the
     dependencies of `task`. If a Task has a cached value, do not expand its
     requirements, and map it immediately. Otherwise, map the task and provide its
     requirements are arguments."""
 
-    def mapper(task: "AbstractTask") -> T:
-        requirements = task._resolve_requirements(ignore_cache=ignore_cache)
+    with tqdm.tqdm(total=0) as pbar:
 
-        if requirements is None:
-            return fn(task)
-        else:
-            mapped_requirements = map_task_tree(requirements, mapper)
-            return fn(task, mapped_requirements)
+        def on_expand(n):
+            pbar.total += n
 
-    return mapper(task)
+        def on_resolve():
+            pbar.update(1)
+
+        def mapper(task: "AbstractTask") -> Any:
+            requirements = task._resolve_requirements(ignore_cache=ignore_cache)
+
+            if requirements is None:
+                to_return = fn(task)
+            else:
+                mapped_requirements = map_task_tree(
+                    requirements, mapper, on_expand=on_expand, on_resolve=on_resolve
+                )
+                to_return = fn(task, mapped_requirements)
+
+            pbar.update(1)
+
+            return to_return
+
+        return map_task_tree(work, mapper)
 
 
 def tasks_in_module(

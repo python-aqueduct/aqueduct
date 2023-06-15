@@ -40,13 +40,14 @@ class DaskBackend(Backend):
         for f in tqdm.tqdm(
             as_completed(self.client.futures, raise_errors=False), desc="Dask jobs"
         ):
-            print(f)
+            if f.status == "error":
+                print(f)
 
         return cast(T, graph.result())
 
 
 class DaskClientProxy:
-    """Proxy to the Dask Client that remembers all the calls to submit and holds on to
+    """Proxy to the Dask Client that remembers  all the calls to submit and holds on to
     the future they return."""
 
     def __init__(self, dask_client: Client):
