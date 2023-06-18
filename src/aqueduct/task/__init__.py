@@ -17,4 +17,10 @@ from .io_task import IOTask
 from .notebook import NotebookTask
 from .task import Task
 
-__all__ = ["AbstractTask", "AggregateTask", "Task", "IOTask", "NotebookTask"]
+__all__ = [
+    "AbstractTask",
+    "AggregateTask",
+    "Task",
+    "IOTask",
+    "NotebookTask",
+]

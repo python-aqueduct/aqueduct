@@ -148,7 +148,7 @@ class Task(AbstractTask[_T]):
 
     _ALLOW_SAVE = True
 
-    def __call__(self, *args, **kwargs) -> Optional[_T]:
+    def __call__(self, *args, backend_spec=None, **kwargs) -> Optional[_T]:
         """Prepare the context, execute the `run` method, and return its result.
 
         If an artifact is specified, save the result before returning. If an artifact is

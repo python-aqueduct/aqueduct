@@ -59,3 +59,6 @@ class ConcurrentBackend(Backend):
             future = task_to_future_resolve(task, executor)
 
             return future.result()
+
+    def _spec(self):
+        return self

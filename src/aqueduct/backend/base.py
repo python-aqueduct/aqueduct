@@ -1,16 +1,13 @@
-from typing import TypeAlias, Optional, cast
+from typing import TypeAlias, Optional, cast, TypedDict, Literal
 
 import hydra
 
 from .backend import Backend
 from .immediate import ImmediateBackend
 from .concurrent import ConcurrentBackend
-from .dask import DaskBackend
+from .dask import DaskBackend, DaskBackendDictSpec, resolve_dask_dict_backend_spec
 
 from ..config import get_aqueduct_config
-
-
-BackendSpec: TypeAlias = str | Backend
 
 
 NAMES_OF_BACKENDS = {
@@ -19,10 +16,16 @@ NAMES_OF_BACKENDS = {
     "dask": DaskBackend,
 }
 
+BackendSpec: TypeAlias = (
+    Literal["immediate", "concurrent", "dask"] | Backend | DaskBackendDictSpec
+)
+
 
 def resolve_backend_from_spec(spec: Optional[BackendSpec]) -> Backend:
     if isinstance(spec, Backend):
         return spec
+    elif isinstance(spec, dict):
+        return resolve_dict_backend_spec(spec)
     elif isinstance(spec, str):
         return NAMES_OF_BACKENDS[spec]
     elif spec is None:
@@ -35,6 +38,13 @@ def resolve_backend_from_spec(spec: Optional[BackendSpec]) -> Backend:
             return ImmediateBackend()
     else:
         raise ValueError(f"Could not resolve backend from spec {spec}")
+
+
+def resolve_dict_backend_spec(spec: DaskBackendDictSpec):
+    if spec["type"] == "dask":
+        return resolve_dask_dict_backend_spec(spec)
+    else:
+        raise KeyError("Unrecognized backend spec")
 
 
 def get_default_backend() -> Backend:

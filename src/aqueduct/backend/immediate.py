@@ -24,3 +24,6 @@ class ImmediateBackend(Backend):
     def execute(self, work: TaskTree) -> Any:
         result = resolve_task_tree(work, execute_task)
         return result
+
+    def _spec(self) -> str:
+        return "immediate"

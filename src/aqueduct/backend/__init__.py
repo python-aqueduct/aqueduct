@@ -18,4 +18,5 @@ __all__ = [
     "resolve_backend_from_spec",
     "BackendSpec",
     "Backend",
+    "get_default_backend",
 ]

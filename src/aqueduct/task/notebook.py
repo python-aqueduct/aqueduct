@@ -1,4 +1,4 @@
-from typing import TypeAlias, Any, TypedDict, Optional
+from typing import TypeAlias, Any, TypedDict, Optional, TYPE_CHECKING
 
 import asyncio
 import base64
@@ -25,6 +25,9 @@ from ..artifact import (
 )
 from .abstract_task import AbstractTask
 from ..config import get_config
+
+if TYPE_CHECKING:
+    from ..backend import BackendSpec
 
 
 class FullNotebookExportSpec(TypedDict):
@@ -129,7 +132,7 @@ class NotebookTask(AbstractTask):
         else:
             return super()._resolve_requirements(ignore_cache=ignore_cache)
 
-    def __call__(self, requirements=None):
+    def __call__(self, requirements=None, backend_spec: "Optional[BackendSpec]" = None):
         notebook_path = self._resolve_notebook()
 
         with open(notebook_path) as f:
@@ -172,7 +175,9 @@ class NotebookTask(AbstractTask):
 
         return sinked_value
 
-    def _prepare_kernel_with_injected_code(self, kernel_client, requirements):
+    def _prepare_kernel_with_injected_code(
+        self, kernel_client, requirements, backend=None
+    ):
         add_sys_string = str([str(x) for x in self.add_to_sys()])
 
         _logger.info("Serializing task...")
@@ -184,16 +189,20 @@ class NotebookTask(AbstractTask):
         cfg = get_config()
         config_load_program = object_to_payload_program(cfg)
 
+        _logger.info("Serializing backend...")
+        backend_load_program = object_to_payload_program(backend)
+
         injected_code = ";\n".join(
             [
                 "import sys",
                 f"sys.path.extend({add_sys_string})",
                 "import aqueduct.notebook",
-                "aqueduct.notebook.AQ_MANAGED_EXECUTION = True",
                 "import cloudpickle",
                 "import base64",
+                "aqueduct.notebook.AQ_MANAGED_EXECUTION = True",
                 f"aqueduct.notebook.AQ_INJECTED_TASK = {task_load_program}",
                 f"aqueduct.notebook.AQ_INJECTED_REQUIREMENTS = {req_load_program}",
+                f"aqueduct.notebook.AQ_INJECTED_BACKEND_SPEC = {backend_load_program},"
                 f"aqueduct.set_config({config_load_program})",
             ]
         )

@@ -11,6 +11,9 @@ from typing import (
 )
 
 import inspect
+import logging
+
+from aqueduct.util import TaskTree
 
 from ..artifact import Artifact, ArtifactSpec, resolve_artifact_from_spec
 from ..config import Config, ConfigSpec, resolve_config_from_spec
@@ -22,6 +25,9 @@ if TYPE_CHECKING:
     from ..backend import Backend
 
 T = TypeVar("T")
+
+
+_logger = logging.getLogger(__name__)
 
 
 class AbstractTask(Generic[T], metaclass=WrapInitMeta):
@@ -127,8 +133,11 @@ class AbstractTask(Generic[T], metaclass=WrapInitMeta):
 
         return module.__name__ + "." + cls.__qualname__
 
-    def _unique_key(self):
+    def _unique_key(self) -> str:
         """Generate a unique key that identifies the task."""
+
+        table = str.maketrans("{[(", "___", "}])")
+        manip_str = self.__str__().translate(table)
 
         # Here, _args_hash is set by the WrapInit metaclass. This makes things more
         # confusing, but in return the user does not have to worry about calling
@@ -137,7 +146,7 @@ class AbstractTask(Generic[T], metaclass=WrapInitMeta):
             [
                 self.__class__.__qualname__,
                 self._fully_qualified_name(),
-                self.__str__(),
+                manip_str,
                 self._args_hash,  # type: ignore
             ]
         )
@@ -161,10 +170,45 @@ class AbstractTask(Generic[T], metaclass=WrapInitMeta):
 
     def __str__(self):
         task_name = self.__class__.__qualname__
-        return f"{task_name}(args={self._args[1:]}, kwargs={self._kwargs})"
+        args_str = tuple([str(x) for x in self._args[1:]])
+        return f"{task_name}(args={args_str}, kwargs={self._kwargs})"
 
     def set_force_root(self, value=True):
         self._aq_force_root = value
+
+    def as_artifact(self):
+        return ArtifactTaskWrapper(self)
+
+
+class ArtifactTaskWrapper(AbstractTask):
+    def __init__(self, inner: AbstractTask):
+        self.inner = inner
+
+    def __call__(self, *args, **kwargs):
+        if not self.inner.is_cached():
+            self.inner.__call__(*args, **kwargs)
+
+        return self.inner.artifact()
+
+    def artifact(self):
+        return None
+
+    def requirements(self):
+        return self.inner.requirements()
+
+    def _resolve_requirements(self, ignore_cache=False) -> TaskTree:
+        if self.inner.is_cached():
+            return None
+        else:
+            return super()._resolve_requirements(ignore_cache)
+
+    def run(self, *args, **kwargs):
+        return self.inner.run(*args, **kwargs)
+
+    def _unique_key(self):
+        inner_key = self.inner._unique_key()
+        first_part, *rest = inner_key.split("-")
+        return "-".join([first_part + "*as_artifact", "-".join(rest)])
 
 
 RequirementSpec: TypeAlias = Union[

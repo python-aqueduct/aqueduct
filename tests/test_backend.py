@@ -51,12 +51,14 @@ class TestImmediateBackend(unittest.TestCase):
 
     def test_run_task(self):
         t = SimpleTask()
-
         backend = self.backend
-        self.assertEqual(backend.execute(t), 2)
+
+        result = backend.execute(t)
+        self.assertEqual(result, 2)
 
     def test_run_dep(self):
         t = TaskB()
+
         self.assertEqual(self.backend.execute(t), 4)
 
 

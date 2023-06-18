@@ -23,7 +23,7 @@ class IOTask(AbstractTask[T]):
     Note that, in an IOTask, the return value of `run` is ignored. This matches the
     expectation that IOTasks mostly act through side effects."""
 
-    def __call__(self, *args, **kwargs) -> Optional[Artifact]:
+    def __call__(self, *args, backend_spec=None, **kwargs) -> Optional[Artifact]:
         """Prepare the context and call `run`.
 
         Note that the user is responsible for creating the artifacts during `run`. The

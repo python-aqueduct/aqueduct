@@ -5,10 +5,9 @@ from .artifact import (
     CompositeArtifact,
 )
 from .artifact.util import artifact_report
-from .backend import ImmediateBackend
+from .backend import ImmediateBackend, ConcurrentBackend, DaskBackend
 from .config import set_config, get_config
 from .task import IOTask, Task, AggregateTask, NotebookTask
-from .backend.dask import DaskBackend
 from .util import count_tasks_to_run, tasks_in_module
 
 
@@ -20,6 +19,7 @@ __all__ = [
     "artifact_report",
     "count_tasks_to_run",
     "CompositeArtifact",
+    "ConcurrentBackend",
     "DaskBackend",
     "get_config",
     "tasks_in_module",

@@ -61,6 +61,7 @@ def map_type_in_tree(
             on_resolve()
         return to_return
     else:
+        breakpoint()
         raise TypeError("Unexpected type inside Tree")
 
 
