@@ -150,7 +150,9 @@ class NotebookTask(AbstractTask):
         else:
             injected_requirements = None
 
-        self._prepare_kernel_with_injected_code(kernel_client, injected_requirements)
+        self._prepare_kernel_with_injected_code(
+            kernel_client, injected_requirements, backend_spec=backend_spec
+        )
 
         try:
             _logger.info("Executing notebook...")
@@ -176,7 +178,7 @@ class NotebookTask(AbstractTask):
         return sinked_value
 
     def _prepare_kernel_with_injected_code(
-        self, kernel_client, requirements, backend=None
+        self, kernel_client, requirements, backend_spec=None
     ):
         add_sys_string = str([str(x) for x in self.add_to_sys()])
 
@@ -190,7 +192,7 @@ class NotebookTask(AbstractTask):
         config_load_program = object_to_payload_program(cfg)
 
         _logger.info("Serializing backend...")
-        backend_load_program = object_to_payload_program(backend)
+        backend_load_program = object_to_payload_program(backend_spec)
 
         injected_code = ";\n".join(
             [
@@ -202,7 +204,7 @@ class NotebookTask(AbstractTask):
                 "aqueduct.notebook.AQ_MANAGED_EXECUTION = True",
                 f"aqueduct.notebook.AQ_INJECTED_TASK = {task_load_program}",
                 f"aqueduct.notebook.AQ_INJECTED_REQUIREMENTS = {req_load_program}",
-                f"aqueduct.notebook.AQ_INJECTED_BACKEND_SPEC = {backend_load_program},"
+                f"aqueduct.notebook.AQ_INJECTED_BACKEND_SPEC = {backend_load_program}",
                 f"aqueduct.set_config({config_load_program})",
             ]
         )

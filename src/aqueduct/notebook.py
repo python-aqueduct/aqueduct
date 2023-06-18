@@ -78,6 +78,7 @@ def get_requirements(backend: Optional[BackendSpec] = None):
 
 def get_backend(default: BackendSpec):
     if AQ_INJECTED_BACKEND_SPEC is not None:
+        print(AQ_INJECTED_BACKEND_SPEC)
         return resolve_backend_from_spec(AQ_INJECTED_BACKEND_SPEC)
     else:
         return resolve_backend_from_spec(default)

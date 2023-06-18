@@ -1,5 +1,5 @@
 from concurrent.futures import Executor, Future, ProcessPoolExecutor, wait
-from typing import Optional, TypeVar, Any
+from typing import Optional, TypeVar, Any, Literal, TypedDict
 
 import cloudpickle
 
@@ -62,3 +62,8 @@ class ConcurrentBackend(Backend):
 
     def _spec(self):
         return self
+
+
+class ConcurrentBackendDictSpec(TypedDict):
+    type: Literal["concurrent"]
+    n_workers: int

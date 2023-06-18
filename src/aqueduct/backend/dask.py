@@ -53,10 +53,7 @@ class DaskBackend(Backend):
         return cast(T, graph.result())
 
     def _spec(self) -> DaskBackendDictSpec:
-        if self.client.cluster is None:
-            raise RuntimeError("Cannot write spec for client without cluster.")
-        scheduler_address = self.client.cluster.scheduler_address
-        return {"type": "dask", "address": scheduler_address}
+        return {"type": "dask", "address": self.client.scheduler_info()["address"]}
 
 
 class DaskClientProxy:

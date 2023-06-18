@@ -26,6 +26,14 @@ class TestBackendResolution(unittest.TestCase):
         backend = resolve_backend_from_spec(None)
         self.assertIsInstance(backend, ImmediateBackend)
 
+    def test_by_name(self):
+        backend = resolve_backend_from_spec("immediate")
+        self.assertIsInstance(backend, ImmediateBackend)
+
+    def test_by_dict(self):
+        backend = resolve_backend_from_spec({"type": "concurrent", "n_workers": 4})
+        self.assertIsInstance(backend, ConcurrentBackend)
+
 
 class SimpleTask(Task):
     def run(self):

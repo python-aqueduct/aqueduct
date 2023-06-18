@@ -29,6 +29,11 @@ class EmptyNotebookTask(NotebookTaskWithPath):
         return "empty_notebook.ipynb"
 
 
+class BackendNotebookTask(NotebookTaskWithPath):
+    def notebook(self):
+        return "return_backend.ipynb"
+
+
 class NotebookWithExport(NotebookTaskWithPath):
     def __init__(self, export_path):
         self.export_path = export_path
@@ -52,6 +57,15 @@ class TestNotebookIntegration(unittest.TestCase):
         aq.set_config({"test_config_injection": 1})
         t = ConfigNotebookTask()
         t.result()
+
+    def test_backend_injection(self):
+        backend = aq.DaskBackend()
+
+        backend._spec()
+        t = BackendNotebookTask()
+        inner_backend = t.result(backend=backend)
+
+        self.assertDictEqual(backend._spec(), inner_backend)
 
     def test_sink(self):
         input_dict = {"test_return_value": 1}
