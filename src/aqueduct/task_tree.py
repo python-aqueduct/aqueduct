@@ -60,51 +60,80 @@ def gather_tasks_in_tree(tree: TypeTree["AbstractTask"]) -> list["AbstractTask"]
 
 
 def _map_type_in_list(
-    tree: list[TypeTree[_T]], type: Type[_T], map_fn: Callable[[_T], _U]
+    tree: list[TypeTree[_T]], type: Type[_T], map_fn: Callable[[_T], _U], **kwargs
 ) -> list[TypeTree[_U]]:
-    return [_map_type_in_tree(x, type, map_fn) for x in tree]
+    return [_map_type_in_tree(x, type, map_fn, **kwargs) for x in tree]
 
 
 def _map_type_in_tuple(
-    tree: tuple[TypeTree[_T]], type: Type[_T], map_fn: Callable[[_T], _U]
+    tree: tuple[TypeTree[_T]], type: Type[_T], map_fn: Callable[[_T], _U], **kwargs
 ) -> tuple[TypeTree[_U]]:
-    return tuple([_map_type_in_tree(x, type, map_fn) for x in tree])
+    return tuple([_map_type_in_tree(x, type, map_fn, **kwargs) for x in tree])
 
 
 def _map_type_in_dict(
-    tree: dict[_K, TypeTree[_T]], type: Type[_T], map_fn: Callable[[_T], _U]
+    tree: dict[_K, TypeTree[_T]], type: Type[_T], map_fn: Callable[[_T], _U], **kwargs
 ) -> dict[_K, TypeTree[_U]]:
-    return {k: _map_type_in_tree(tree[k], type, map_fn) for k in tree}
+    return {k: _map_type_in_tree(tree[k], type, map_fn, **kwargs) for k in tree}
 
 
 @overload
 def _map_type_in_tree(
-    tree: list[TypeTree[_T]], type: Type[_T], map_fn: Callable[[_T], _U]
+    tree: list[TypeTree[_T]],
+    type: Type[_T],
+    map_fn: Callable[[_T], _U],
+    on_expand: Optional[Callable[[Iterable[TypeTree[_T]]], None]] = None,
+    before_map: Optional[Callable[[_T], None]] = None,
+    after_map: Optional[Callable[[_U], None]] = None,
 ) -> list[TypeTree[_U]]:
     ...
 
 
 @overload
 def _map_type_in_tree(
-    tree: dict[_K, TypeTree[_T]], type: Type[_T], map_fn: Callable[[_T], _U]
+    tree: dict[_K, TypeTree[_T]],
+    type: Type[_T],
+    map_fn: Callable[[_T], _U],
+    on_expand: Optional[Callable[[Iterable[TypeTree[_T]]], None]] = None,
+    before_map: Optional[Callable[[_T], None]] = None,
+    after_map: Optional[Callable[[_U], None]] = None,
 ) -> dict[_K, TypeTree[_U]]:
     ...
 
 
 @overload
 def _map_type_in_tree(
-    tree: tuple[TypeTree[_T]], type: Type[_T], map_fn: Callable[[_T], _U]
+    tree: tuple[TypeTree[_T]],
+    type: Type[_T],
+    map_fn: Callable[[_T], _U],
+    on_expand: Optional[Callable[[Iterable[TypeTree[_T]]], None]] = None,
+    before_map: Optional[Callable[[_T], None]] = None,
+    after_map: Optional[Callable[[_U], None]] = None,
 ) -> tuple[TypeTree[_U]]:
     ...
 
 
 @overload
-def _map_type_in_tree(tree: _T, type: Type[_T], map_fn: Callable[[_T], _U]) -> _U:
+def _map_type_in_tree(
+    tree: _T,
+    type: Type[_T],
+    map_fn: Callable[[_T], _U],
+    on_expand: Optional[Callable[[Iterable[TypeTree[_T]]], None]] = None,
+    before_map: Optional[Callable[[_T], None]] = None,
+    after_map: Optional[Callable[[_U], None]] = None,
+) -> _U:
     ...
 
 
 @overload
-def _map_type_in_tree(tree: None, type: Type[_T], map_fn: Callable[[_T], Any]) -> None:
+def _map_type_in_tree(
+    tree: None,
+    type: Type[_T],
+    map_fn: Callable[[_T], _U],
+    on_expand: Optional[Callable[[Iterable[TypeTree[_T]]], None]] = None,
+    before_map: Optional[Callable[[_T], None]] = None,
+    after_map: Optional[Callable[[_U], None]] = None,
+) -> None:
     ...
 
 
@@ -120,12 +149,18 @@ def _map_type_in_tree(
         if on_expand is not None:
             on_expand(tree)
 
+        kwargs = {
+            "on_expand": on_expand,
+            "before_map": before_map,
+            "after_map": after_map,
+        }
+
         if isinstance(tree, list):
-            return _map_type_in_list(tree, type, map_fn)
+            return _map_type_in_list(tree, type, map_fn, **kwargs)
         elif isinstance(tree, tuple):
-            return _map_type_in_tuple(tree, type, map_fn)
+            return _map_type_in_tuple(tree, type, map_fn, **kwargs)
         elif isinstance(tree, dict):
-            return _map_type_in_dict(tree, type, map_fn)
+            return _map_type_in_dict(tree, type, map_fn, **kwargs)
     elif isinstance(tree, type):
         if before_map:
             before_map(tree)

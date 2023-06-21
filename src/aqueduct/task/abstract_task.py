@@ -135,8 +135,8 @@ class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
     def _unique_key(self) -> str:
         """Generate a unique key that identifies the task."""
 
-        table = str.maketrans("{[(", "___", "}])")
-        manip_str = self.__str__().translate(table)
+        # table = str.maketrans("{[(", "___", "}]) ")
+        # manip_str = self.__str__().translate(table)
 
         # Here, _args_hash is set by the WrapInit metaclass. This makes things more
         # confusing, but in return the user does not have to worry about calling
@@ -144,8 +144,6 @@ class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
         return "-".join(
             [
                 self.__class__.__qualname__,
-                self._fully_qualified_name(),
-                manip_str,
                 self._args_hash,  # type: ignore
             ]
         )

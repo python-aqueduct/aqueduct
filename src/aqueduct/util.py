@@ -111,7 +111,6 @@ def resolve_task_tree(
     fn: Callable,
     ignore_cache=False,
     on_expand=None,
-    on_map=None,
 ) -> Any:
     """Apply function fn on all Task objects encountered while resolving the
     dependencies of `task`. If a Task has a cached value, do not expand its
@@ -128,7 +127,6 @@ def resolve_task_tree(
                 requirements,
                 mapper,
                 on_expand=on_expand,
-                on_map=on_map,
             )
             to_return = fn(task, mapped_requirements)
 

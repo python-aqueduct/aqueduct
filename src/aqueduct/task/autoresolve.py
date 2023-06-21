@@ -56,7 +56,9 @@ def init_wrapper(task_class: Type["AbstractTask"], fn):
         cfg = resolve_config_from_spec(task_class.CONFIG, task_class)
         new_args, new_kwargs = fetch_args_from_config(cfg, fn, self, *args, **kwargs)
 
-        self._args_hash = dask.base.tokenize(*new_args, **new_kwargs)
+        self._args_hash = dask.base.tokenize(
+            self._fully_qualified_name(), *new_args, **new_kwargs
+        )
         self._args = new_args
         self._kwargs = new_kwargs
 

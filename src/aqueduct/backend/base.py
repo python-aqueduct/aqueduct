@@ -18,16 +18,12 @@ NAMES_OF_BACKENDS = {
 }
 
 
-BackendDictSpect: TypeAlias = (
+BackendDictSpec: TypeAlias = (
     DaskBackendDictSpec | ConcurrentBackendDictSpec | ImmediateBackendDictSpec
 )
 
 BackendSpec: TypeAlias = (
-    Literal["immediate", "concurrent", "dask"]
-    | Backend
-    | DaskBackendDictSpec
-    | ConcurrentBackendDictSpec
-    | None
+    Literal["immediate", "concurrent", "dask"] | Backend | BackendDictSpec | None
 )
 
 
@@ -50,7 +46,7 @@ def resolve_backend_from_spec(spec: BackendSpec) -> Backend:
         raise ValueError(f"Could not resolve backend from spec {spec}")
 
 
-def resolve_dict_backend_spec(spec: DaskBackendDictSpec | ConcurrentBackendDictSpec):
+def resolve_dict_backend_spec(spec: BackendDictSpec) -> Backend:
     if spec["type"] == "dask":
         return resolve_dask_dict_backend_spec(spec)
     elif spec["type"] == "concurrent":
