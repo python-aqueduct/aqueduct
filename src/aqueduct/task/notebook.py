@@ -14,8 +14,6 @@ import nbformat
 import pathlib
 import tqdm
 
-from aqueduct.util import TaskTree
-
 from ..artifact import (
     TextStreamArtifactSpec,
     TextStreamArtifact,
@@ -25,6 +23,7 @@ from ..artifact import (
 )
 from .abstract_task import AbstractTask
 from ..config import get_config
+from ..task_tree import OptionalTaskTree
 
 if TYPE_CHECKING:
     from ..backend import BackendSpec
@@ -122,7 +121,7 @@ class NotebookTask(AbstractTask):
     def add_to_sys(self) -> list[str]:
         return []
 
-    def _resolve_requirements(self, ignore_cache=False) -> TaskTree:
+    def _resolve_requirements(self, ignore_cache=False) -> OptionalTaskTree:
         if self.REQUIREMENTS_INJECTION == False and not ignore_cache:
             _logger.info(
                 f"Skipping requirements for NotebookTask {self.__class__.__qualname__}."
@@ -256,3 +255,7 @@ class NotebookTask(AbstractTask):
             return path
         else:
             return path_of_module.parent / path
+
+    def __str__(self):
+        task_name = self.__class__.__qualname__
+        return f"{task_name}(notebook={self.notebook()}, export={self.export()})"

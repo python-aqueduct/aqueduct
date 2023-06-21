@@ -19,11 +19,12 @@ from ..config import set_config, get_config
 from .backend import Backend
 from ..task import AbstractTask
 from ..util import resolve_task_tree
+from ..task_tree import TaskTree, _map_type_in_tree, OptionalTaskTree
 
 if TYPE_CHECKING:
     from .base import BackendSpec
 
-T = TypeVar("T")
+_T = TypeVar("_T")
 
 _logger = logging.getLogger(__name__)
 
@@ -46,31 +47,20 @@ class DaskBackend(Backend):
         else:
             self.client = client
 
-    def execute(self, task: AbstractTask[T]) -> T:
+    def execute(self, task: OptionalTaskTree):
         _logger.info("Creating graph...")
         graph = create_dask_graph(task, self.client, backend_spec=self._spec())
 
-        return cast(T, graph.result())
+        return compute_dask_graph(graph)
+
+    def _scheduler_address(self):
+        return self.client.scheduler_info()["address"]
 
     def _spec(self) -> DaskBackendDictSpec:
-        return {"type": "dask", "address": self.client.scheduler_info()["address"]}
+        return {"type": "dask", "address": self._scheduler_address()}
 
-
-class DaskClientProxy:
-    """Proxy to the Dask Client that remembers  all the calls to submit and holds on to
-    the future they return."""
-
-    def __init__(self, dask_client: Client):
-        self.client = dask_client
-        self.futures = []
-        _logger.info(
-            f"Connected to Dask client with Dashboard Link: {dask_client.dashboard_link}"
-        )
-
-    def submit(self, fn, *args, **kwargs):
-        future = self.client.submit(fn, *args, **kwargs)
-        # self.futures.append(future)
-        return future
+    def __str__(self):
+        return f"DaskBackend(scheduler={self._scheduler_address()})"
 
 
 def wrap_task(cfg: Mapping[str, Any], task: AbstractTask, *args, **kwargs):
@@ -79,8 +69,8 @@ def wrap_task(cfg: Mapping[str, Any], task: AbstractTask, *args, **kwargs):
 
 
 def create_dask_graph(
-    task: AbstractTask, client: Client, backend_spec: "Optional[BackendSpec]"
-) -> Future:
+    task: OptionalTaskTree, client: Client, backend_spec: "Optional[BackendSpec]"
+) -> Any:
     def task_to_dask_future(task: AbstractTask, requirements=None) -> Future:
         cfg = get_config()
 
@@ -105,5 +95,14 @@ def create_dask_graph(
     return future
 
 
+def compute_dask_graph(graph):
+    computed = _map_type_in_tree(graph, Future, dask_future_to_result)
+    return computed
+
+
 def resolve_dask_dict_backend_spec(spec: DaskBackendDictSpec) -> DaskBackend:
     return DaskBackend(Client(address=spec["address"]))
+
+
+def dask_future_to_result(future: Future):
+    return future.result()

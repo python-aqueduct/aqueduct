@@ -1,10 +1,15 @@
-from typing import TypeVar, Any, cast
+from typing import TypeVar, Any, TypedDict, Literal
 
 from .backend import Backend
 from ..task import AbstractTask
-from ..util import resolve_task_tree, TaskTree
+from ..util import resolve_task_tree
+from ..task_tree import OptionalTaskTree
 
 T = TypeVar("T")
+
+
+class ImmediateBackendDictSpec(TypedDict):
+    type: Literal["immediate"]
 
 
 def execute_task(task: AbstractTask[T], requirements=None) -> T:
@@ -21,7 +26,7 @@ class ImmediateBackend(Backend):
     No parallelism is involved. Useful for debugging purposes. For any form of
     parallelism, the :class:`DaskBackend` is probably more appropriate."""
 
-    def execute(self, work: TaskTree) -> Any:
+    def execute(self, work: OptionalTaskTree) -> Any:
         result = resolve_task_tree(work, execute_task)
         return result
 

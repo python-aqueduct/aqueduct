@@ -13,7 +13,6 @@ from typing import (
 import inspect
 import logging
 
-from aqueduct.util import TaskTree
 
 from ..artifact import Artifact, ArtifactSpec, resolve_artifact_from_spec
 from ..config import Config, ConfigSpec, resolve_config_from_spec
@@ -21,16 +20,16 @@ from .autoresolve import WrapInitMeta
 
 
 if TYPE_CHECKING:
-    from ..util import TaskTree
     from ..backend import Backend
+    from ..task_tree import TaskTree, OptionalTaskTree
 
-T = TypeVar("T")
+_T = TypeVar("_T")
 
 
 _logger = logging.getLogger(__name__)
 
 
-class AbstractTask(Generic[T], metaclass=WrapInitMeta):
+class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
     """Base class for a all Tasks. In most cases you don't have to subclass this
     directly. Subclass either :class:`IOTask` of :class:`Task` to define your own Task.
     """
@@ -60,7 +59,7 @@ class AbstractTask(Generic[T], metaclass=WrapInitMeta):
             "__call__ not implemented for Task. Did you mean to use IOTask or PureTask as a parent class?"
         )
 
-    def run(self, reqs: Any) -> T:
+    def run(self, reqs: Any) -> _T:
         """Subclass this to specify the work done to realize the task. When called,
         the resolved requirements are passed as the first positional argument."""
         raise NotImplementedError()
@@ -92,7 +91,7 @@ class AbstractTask(Generic[T], metaclass=WrapInitMeta):
             and resolve_artifact_from_spec(artifact_spec).exists()
         )
 
-    def requirements(self) -> Optional["TaskTree"]:
+    def requirements(self) -> "OptionalTaskTree":
         """Subclass this to express the Tasks that are required for this Task to run.
         The tasks specified here will be computed before this Task is executed. The
         result of the required tasks is passed as an argument to the `run` method.
@@ -105,7 +104,7 @@ class AbstractTask(Generic[T], metaclass=WrapInitMeta):
             to `run`."""
         return None
 
-    def _resolve_requirements(self, ignore_cache=False) -> Optional["TaskTree"]:
+    def _resolve_requirements(self, ignore_cache=False) -> "OptionalTaskTree":
         artifact_spec = self.artifact()
 
         if artifact_spec is not None:
@@ -151,7 +150,7 @@ class AbstractTask(Generic[T], metaclass=WrapInitMeta):
             ]
         )
 
-    def result(self, backend: Optional["Backend"] = None) -> T:
+    def result(self, backend: Optional["Backend"] = None) -> _T:
         """Compute the result of the Task locally and return it. This is equivalent to
         calling to using the `execute` method of the :class:`ImmediateBackend`.
 
@@ -196,7 +195,7 @@ class ArtifactTaskWrapper(AbstractTask):
     def requirements(self):
         return self.inner.requirements()
 
-    def _resolve_requirements(self, ignore_cache=False) -> TaskTree:
+    def _resolve_requirements(self, ignore_cache=False) -> "OptionalTaskTree":
         if self.inner.is_cached():
             return None
         else:

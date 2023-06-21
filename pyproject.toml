@@ -10,14 +10,13 @@ dependencies = [
     "distributed",
     "hydra-core",
     "omegaconf",
-    "traitlets",
     "nbformat",
     "nbconvert",
     "jupyter_client",
 ]
 
 [project.optional-dependencies]
-dev = ["isort", "black", "furo", "myst-parser", "nb-clean", "nose", "parquet-tools", "sphinx", "sphinx_rtd_theme"]
+dev = ["isort", "black", "furo", "myst-parser", "nb-clean", "parquet-tools", "sphinx"]
 
 [tool.black]
 line-length = 88

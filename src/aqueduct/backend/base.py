@@ -1,9 +1,10 @@
 from typing import TypeAlias, Optional, cast, TypedDict, Literal
 
+import collections.abc
 import hydra
 
 from .backend import Backend
-from .immediate import ImmediateBackend
+from .immediate import ImmediateBackend, ImmediateBackendDictSpec
 from .concurrent import ConcurrentBackend, ConcurrentBackendDictSpec
 from .dask import DaskBackend, DaskBackendDictSpec, resolve_dask_dict_backend_spec
 
@@ -16,18 +17,24 @@ NAMES_OF_BACKENDS = {
     "dask": DaskBackend,
 }
 
+
+BackendDictSpect: TypeAlias = (
+    DaskBackendDictSpec | ConcurrentBackendDictSpec | ImmediateBackendDictSpec
+)
+
 BackendSpec: TypeAlias = (
     Literal["immediate", "concurrent", "dask"]
     | Backend
     | DaskBackendDictSpec
     | ConcurrentBackendDictSpec
+    | None
 )
 
 
-def resolve_backend_from_spec(spec: Optional[BackendSpec]) -> Backend:
+def resolve_backend_from_spec(spec: BackendSpec) -> Backend:
     if isinstance(spec, Backend):
         return spec
-    elif isinstance(spec, dict):
+    elif isinstance(spec, collections.abc.Mapping):
         return resolve_dict_backend_spec(spec)
     elif isinstance(spec, str):
         return NAMES_OF_BACKENDS[spec]()
@@ -46,8 +53,10 @@ def resolve_backend_from_spec(spec: Optional[BackendSpec]) -> Backend:
 def resolve_dict_backend_spec(spec: DaskBackendDictSpec | ConcurrentBackendDictSpec):
     if spec["type"] == "dask":
         return resolve_dask_dict_backend_spec(spec)
-    if spec["type"] == "concurrent":
+    elif spec["type"] == "concurrent":
         return ConcurrentBackend(n_workers=spec["n_workers"])
+    elif spec["type"] == "immediate":
+        return ImmediateBackend()
     else:
         raise KeyError("Unrecognized backend spec")
 

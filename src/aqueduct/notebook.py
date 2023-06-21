@@ -73,10 +73,13 @@ def get_requirements(backend: Optional[BackendSpec] = None):
     requirements = AQ_INJECTED_TASK._resolve_requirements(ignore_cache=True)
     backend = resolve_backend_from_spec(backend)
 
-    return backend.execute(requirements)
+    if requirements is None:
+        return None
+    else:
+        return backend.execute(requirements)
 
 
-def get_backend(default: BackendSpec):
+def get_backend(default: BackendSpec) -> Backend:
     if AQ_INJECTED_BACKEND_SPEC is not None:
         print(AQ_INJECTED_BACKEND_SPEC)
         return resolve_backend_from_spec(AQ_INJECTED_BACKEND_SPEC)

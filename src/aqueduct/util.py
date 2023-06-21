@@ -13,26 +13,22 @@ from typing import (
     TYPE_CHECKING,
 )
 
+from .task_tree import TypeTree, TaskTree, OptionalTaskTree
+
 if TYPE_CHECKING:
     from .task import AbstractTask
 
-T = TypeVar("T")
-U = TypeVar("U")
-
-TypeTree: TypeAlias = Union[
-    list["TypeTree[T]"], tuple["TypeTree[T]"], dict[str, "TypeTree[T]"], T, None
-]
-
-TaskTree: TypeAlias = TypeTree["AbstractTask"]
+_T = TypeVar("_T")
+_U = TypeVar("_U")
 
 
 def map_type_in_tree(
-    tree: TypeTree[T],
-    type: Type[T],
-    fn: Callable[[T], U],
+    tree: TypeTree[_T],
+    type: Type[_T],
+    fn: Callable[[_T], _U],
     on_expand: Optional[Callable[[int], None]] = None,
     on_resolve: Optional[Callable[[], None]] = None,
-) -> TypeTree[U]:
+) -> TypeTree[_U]:
     """Recursively explore data structures containing T, and map all T
     found using `fn`.
 
@@ -61,7 +57,6 @@ def map_type_in_tree(
             on_resolve()
         return to_return
     else:
-        breakpoint()
         raise TypeError("Unexpected type inside Tree")
 
 
@@ -73,16 +68,17 @@ def map_type_in_list(input: list, type, fn) -> list:
     return [map_type_in_tree(x, type, fn) for x in input]
 
 
-def map_type_in_dict(input: dict[T, Any], type, fn) -> dict[T, Any]:
+def map_type_in_dict(input: dict[_T, Any], type, fn) -> dict[_T, Any]:
     return {k: map_type_in_tree(input[k], type, fn) for k in input}
 
 
 def map_task_tree(
-    tree: TypeTree["AbstractTask"],
-    fn: Callable[["AbstractTask"], U],
+    tree: TypeTree["AbstractTask" | None],
+    fn: Callable[["AbstractTask"], _U],
     on_expand: Optional[Callable[[int], None]] = None,
     on_resolve: Optional[Callable[[], None]] = None,
-) -> TypeTree[U]:
+    on_root_task: Optional[Callable[[_U], Any]] = None,
+) -> TypeTree:
     """Recursively explore data structures containing Tasks, and map all Tasks
     found using `fn`.
 
@@ -95,8 +91,15 @@ def map_task_tree(
         `fn`."""
     from .task import AbstractTask
 
+    def wrapped_user_fn(*args, **kwargs):
+        return fn(*args, **kwargs)
+
     return map_type_in_tree(
-        tree, AbstractTask, fn, on_expand=on_expand, on_resolve=on_resolve
+        tree,
+        AbstractTask,
+        wrapped_user_fn,
+        on_expand=on_expand,
+        on_resolve=on_resolve,
     )
 
 
@@ -127,7 +130,7 @@ def count_tasks_to_run(
     return counts
 
 
-def task_to_result(task: "AbstractTask[T]") -> T:
+def task_to_result(task: "AbstractTask[_T]") -> _T:
     requirements = task._resolve_requirements()
 
     if requirements is None:
@@ -138,39 +141,36 @@ def task_to_result(task: "AbstractTask[T]") -> T:
 
 
 def resolve_task_tree(
-    work: TaskTree,
+    work: OptionalTaskTree,
     fn: Callable,
     ignore_cache=False,
+    on_root_task: Optional[Callable[..., Optional[Any]]] = None,
+    on_expand=None,
+    on_resolve=None,
 ) -> Any:
     """Apply function fn on all Task objects encountered while resolving the
     dependencies of `task`. If a Task has a cached value, do not expand its
     requirements, and map it immediately. Otherwise, map the task and provide its
     requirements are arguments."""
 
-    with tqdm.tqdm(total=0) as pbar:
+    def mapper(task: "AbstractTask") -> Any:
+        requirements = task._resolve_requirements(ignore_cache=ignore_cache)
 
-        def on_expand(n):
-            pbar.total += n
+        if requirements is None:
+            to_return = fn(task)
+        else:
+            mapped_requirements = map_task_tree(
+                requirements,
+                mapper,
+                on_expand=on_expand,
+                on_resolve=on_resolve,
+                on_root_task=on_root_task,
+            )
+            to_return = fn(task, mapped_requirements)
 
-        def on_resolve():
-            pbar.update(1)
+        return to_return
 
-        def mapper(task: "AbstractTask") -> Any:
-            requirements = task._resolve_requirements(ignore_cache=ignore_cache)
-
-            if requirements is None:
-                to_return = fn(task)
-            else:
-                mapped_requirements = map_task_tree(
-                    requirements, mapper, on_expand=on_expand, on_resolve=on_resolve
-                )
-                to_return = fn(task, mapped_requirements)
-
-            pbar.update(1)
-
-            return to_return
-
-        return map_task_tree(work, mapper)
+    return map_task_tree(work, mapper)
 
 
 def tasks_in_module(
