@@ -1,22 +1,15 @@
-from typing import cast
-
 from IPython.core.interactiveshell import InteractiveShell
 import importlib
 
 from IPython.core.magic import (
     magics_class,
     line_magic,
-    cell_magic,
     Magics,
-    needs_local_scope,
 )
 
 from IPython.core.magic_arguments import argument, magic_arguments, parse_argstring
 
 from .config import set_config
-from .task import AbstractTask
-from .util import map_task_tree
-import aqueduct as aq
 
 from . import notebook as notebook_module
 

@@ -7,7 +7,6 @@ import logging
 from .backend import BackendSpec, resolve_backend_from_spec, Backend
 from .config import Config
 from .task import AbstractTask
-from .util import map_task_tree
 
 T = TypeVar("T")
 

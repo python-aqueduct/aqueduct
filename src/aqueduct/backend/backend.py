@@ -1,7 +1,7 @@
 import abc
 from typing import TypeVar, Any, TYPE_CHECKING
 
-from ..task_tree import OptionalTaskTree
+from ..task_tree import TaskTree
 
 if TYPE_CHECKING:
     from .base import BackendSpec
@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 class Backend(abc.ABC):
     @abc.abstractmethod
-    def execute(self, work: OptionalTaskTree) -> Any:
+    def execute(self, work: TaskTree) -> Any:
         """Execute a :class:`Task` by resolving all its requirements."""
         raise NotImplemented("Backend must implement execute.")
 

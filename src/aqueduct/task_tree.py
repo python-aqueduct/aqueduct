@@ -5,12 +5,12 @@ functions in .util."""
 from typing import (
     Any,
     Callable,
-    cast,
+    Iterable,
     overload,
+    Optional,
     Type,
     TypeAlias,
     TypeVar,
-    Optional,
     TYPE_CHECKING,
 )
 
@@ -22,11 +22,10 @@ _T = TypeVar("_T")
 _U = TypeVar("_U")
 
 TypeTree: TypeAlias = (
-    list["TypeTree[_T]"] | tuple["TypeTree[_T]"] | dict[Any, "TypeTree[_T]"] | _T
+    list["TypeTree[_T]"] | tuple["TypeTree[_T]"] | dict[Any, "TypeTree[_T]"] | _T | None
 )
 
 TaskTree: TypeAlias = TypeTree["AbstractTask"]
-OptionalTaskTree: TypeAlias = TypeTree["AbstractTask" | None]
 
 
 def _reduce_type_in_tree(
@@ -104,24 +103,68 @@ def _map_type_in_tree(tree: _T, type: Type[_T], map_fn: Callable[[_T], _U]) -> _
     ...
 
 
+@overload
+def _map_type_in_tree(tree: None, type: Type[_T], map_fn: Callable[[_T], Any]) -> None:
+    ...
+
+
 def _map_type_in_tree(
-    tree: TypeTree[_T], type: Type[_T], map_fn: Callable[[_T], _U]
+    tree: TypeTree[_T],
+    type: Type[_T],
+    map_fn: Callable[[_T], _U],
+    on_expand: Optional[Callable[[Iterable[TypeTree[_T]]], None]] = None,
+    before_map: Optional[Callable[[_T], None]] = None,
+    after_map: Optional[Callable[[_U], None]] = None,
 ) -> TypeTree[_U]:
-    if isinstance(tree, list):
-        return _map_type_in_list(tree, type, map_fn)
-    if isinstance(tree, tuple):
-        return _map_type_in_tuple(tree, type, map_fn)
-    elif isinstance(tree, dict):
-        return _map_type_in_dict(tree, type, map_fn)
+    if isinstance(tree, (list, tuple, dict)):
+        if on_expand is not None:
+            on_expand(tree)
+
+        if isinstance(tree, list):
+            return _map_type_in_list(tree, type, map_fn)
+        elif isinstance(tree, tuple):
+            return _map_type_in_tuple(tree, type, map_fn)
+        elif isinstance(tree, dict):
+            return _map_type_in_dict(tree, type, map_fn)
     elif isinstance(tree, type):
-        return map_fn(tree)
+        if before_map:
+            before_map(tree)
+        mapped = map_fn(tree)
+        if after_map:
+            after_map(mapped)
+
+        return mapped
+    elif tree is None:
+        return None
     else:
         raise ValueError(f"Could not handle tree node {tree}.")
 
 
-def map_tasks_in_tree(
-    tree: TypeTree["AbstractTask"], map_fn: Callable[["AbstractTask"], _U]
+def _map_tasks_in_tree(
+    tree: TypeTree["AbstractTask"],
+    map_fn: Callable[["AbstractTask"], _U],
+    **kwargs,
 ) -> TypeTree[_U]:
     from .task import AbstractTask
 
-    return _map_type_in_tree(tree, AbstractTask, map_fn)
+    return _map_type_in_tree(tree, AbstractTask, map_fn, **kwargs)
+
+
+def _resolve_task_tree(
+    work: TaskTree,
+    fn: Callable,
+    ignore_cache=False,
+    **kwargs,
+) -> Any:
+    def mapper(task: "AbstractTask") -> Any:
+        requirements = task._resolve_requirements(ignore_cache=ignore_cache)
+
+        if requirements is None:
+            to_return = fn(task)
+        else:
+            mapped_requirements = _map_tasks_in_tree(requirements, mapper, **kwargs)
+            to_return = fn(task, mapped_requirements)
+
+        return to_return
+
+    return _map_tasks_in_tree(work, mapper, **kwargs)

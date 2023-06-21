@@ -19,7 +19,7 @@ from ..config import set_config, get_config
 from .backend import Backend
 from ..task import AbstractTask
 from ..util import resolve_task_tree
-from ..task_tree import TaskTree, _map_type_in_tree, OptionalTaskTree
+from ..task_tree import TaskTree, _map_type_in_tree
 
 if TYPE_CHECKING:
     from .base import BackendSpec
@@ -47,7 +47,7 @@ class DaskBackend(Backend):
         else:
             self.client = client
 
-    def execute(self, task: OptionalTaskTree):
+    def execute(self, task: TaskTree):
         _logger.info("Creating graph...")
         graph = create_dask_graph(task, self.client, backend_spec=self._spec())
 
@@ -69,7 +69,7 @@ def wrap_task(cfg: Mapping[str, Any], task: AbstractTask, *args, **kwargs):
 
 
 def create_dask_graph(
-    task: OptionalTaskTree, client: Client, backend_spec: "Optional[BackendSpec]"
+    task: TaskTree, client: Client, backend_spec: "Optional[BackendSpec]"
 ) -> Any:
     def task_to_dask_future(task: AbstractTask, requirements=None) -> Future:
         cfg = get_config()

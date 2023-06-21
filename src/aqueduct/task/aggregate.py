@@ -5,7 +5,7 @@ from aqueduct.artifact import Artifact
 from .abstract_task import AbstractTask
 from ..artifact import CompositeArtifact, resolve_artifact_from_spec
 from .task import Task
-from ..util import map_task_tree
+from ..task_tree import _map_tasks_in_tree
 
 
 class AggregateTask(Task):
@@ -24,7 +24,7 @@ class AggregateTask(Task):
         reqs = self.requirements()
 
         if reqs is not None:
-            map_task_tree(reqs, accumulate_artifacts)
+            _map_tasks_in_tree(reqs, accumulate_artifacts)
 
         if len(artifacts) > 0:
             return CompositeArtifact(artifacts)

@@ -1,7 +1,7 @@
 from typing import Any
 
 from .abstract_task import AbstractTask
-from ..util import map_task_tree
+from ..task_tree import _map_tasks_in_tree
 
 
 def execute_task(task: AbstractTask):
@@ -13,5 +13,5 @@ def execute_task(task: AbstractTask):
     if requirements is None:
         return task()
     else:
-        mapped_requirements = map_task_tree(requirements, execute_task)
+        mapped_requirements = _map_tasks_in_tree(requirements, execute_task)
         return task(mapped_requirements)

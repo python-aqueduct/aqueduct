@@ -23,7 +23,7 @@ from ..artifact import (
 )
 from .abstract_task import AbstractTask
 from ..config import get_config
-from ..task_tree import OptionalTaskTree
+from ..task_tree import TaskTree
 
 if TYPE_CHECKING:
     from ..backend import BackendSpec
@@ -121,7 +121,7 @@ class NotebookTask(AbstractTask):
     def add_to_sys(self) -> list[str]:
         return []
 
-    def _resolve_requirements(self, ignore_cache=False) -> OptionalTaskTree:
+    def _resolve_requirements(self, ignore_cache=False) -> TaskTree:
         if self.REQUIREMENTS_INJECTION == False and not ignore_cache:
             _logger.info(
                 f"Skipping requirements for NotebookTask {self.__class__.__qualname__}."

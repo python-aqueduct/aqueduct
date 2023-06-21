@@ -21,7 +21,7 @@ from .autoresolve import WrapInitMeta
 
 if TYPE_CHECKING:
     from ..backend import Backend
-    from ..task_tree import TaskTree, OptionalTaskTree
+    from ..task_tree import TaskTree
 
 _T = TypeVar("_T")
 
@@ -91,7 +91,7 @@ class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
             and resolve_artifact_from_spec(artifact_spec).exists()
         )
 
-    def requirements(self) -> "OptionalTaskTree":
+    def requirements(self) -> "TaskTree":
         """Subclass this to express the Tasks that are required for this Task to run.
         The tasks specified here will be computed before this Task is executed. The
         result of the required tasks is passed as an argument to the `run` method.
@@ -104,7 +104,7 @@ class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
             to `run`."""
         return None
 
-    def _resolve_requirements(self, ignore_cache=False) -> "OptionalTaskTree":
+    def _resolve_requirements(self, ignore_cache=False) -> "TaskTree":
         artifact_spec = self.artifact()
 
         if artifact_spec is not None:
@@ -195,7 +195,7 @@ class ArtifactTaskWrapper(AbstractTask):
     def requirements(self):
         return self.inner.requirements()
 
-    def _resolve_requirements(self, ignore_cache=False) -> "OptionalTaskTree":
+    def _resolve_requirements(self, ignore_cache=False) -> "TaskTree":
         if self.inner.is_cached():
             return None
         else:

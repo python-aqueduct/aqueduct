@@ -3,7 +3,7 @@ from typing import TypeVar, Any, TypedDict, Literal
 from .backend import Backend
 from ..task import AbstractTask
 from ..util import resolve_task_tree
-from ..task_tree import OptionalTaskTree
+from ..task_tree import TaskTree
 
 T = TypeVar("T")
 
@@ -26,7 +26,7 @@ class ImmediateBackend(Backend):
     No parallelism is involved. Useful for debugging purposes. For any form of
     parallelism, the :class:`DaskBackend` is probably more appropriate."""
 
-    def execute(self, work: OptionalTaskTree) -> Any:
+    def execute(self, work: TaskTree) -> Any:
         result = resolve_task_tree(work, execute_task)
         return result
 
