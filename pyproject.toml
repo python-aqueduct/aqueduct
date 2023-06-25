@@ -23,7 +23,7 @@ line-length = 88
 target-version = ['py311']
 
 [project.scripts]
-
+aq = "aqueduct.cli:cli"
 
 [tool.pytest.ini_options]
 pythonpath = "src"

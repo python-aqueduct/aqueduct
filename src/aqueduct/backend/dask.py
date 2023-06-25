@@ -9,15 +9,16 @@ from typing import (
 )
 
 import logging
+import threading
+import time
 import tqdm
+import queue
 
-from dask.distributed import Client, Future, as_completed, SpecCluster, LocalCluster
-from dask_jobqueue import SLURMCluster
+from dask.distributed import Client, Future, as_completed, LocalCluster, wait
 
 from ..config import set_config, get_config
 from .backend import Backend
 from ..task import AbstractTask
-from ..util import resolve_task_tree
 from ..task_tree import TaskTree, _map_type_in_tree, _resolve_task_tree, TypeTree
 
 if TYPE_CHECKING:
@@ -46,36 +47,41 @@ class DaskBackend(Backend):
         else:
             self.client = client
 
+        self.unique_keys_done = set()
+        self.unique_keys_submitted = set()
+
     def execute(self, task: TaskTree):
-        _logger.info("Creating graph...")
+        with tqdm.tqdm() as pbar:
+            _logger.info("Creating graph...")
 
-        with tqdm.tqdm(total=0, desc="Dask tasks") as pbar:
+            def on_future(future):
+                self.unique_keys_submitted.add(future.key)
+                try:
+                    future.add_done_callback(on_future_done)
+                except RuntimeError as e:
+                    breakpoint()
+                pbar.reset(total=len(self.unique_keys_submitted))
+                pbar.update(len(self.unique_keys_done))
+                pbar.refresh()
 
-            def on_task(task):
-                pbar.reset(total=pbar.total + 1)
+            def on_future_done(future):
+                self.unique_keys_done.add(future.key)
+                pbar.reset(len(self.unique_keys_submitted))
+                pbar.update(len(self.unique_keys_done))
+                pbar.refresh()
 
             graph, futures_by_key = create_dask_graph(
                 task,
                 self.client,
                 backend_spec=self._spec(),
-                on_task=on_task,
+                on_future=on_future,
             )
 
             _logger.info(f"Submitted {len(futures_by_key)} unique tasks.")
-            pbar.reset(total=len(futures_by_key))
-
-            for f in as_completed(futures_by_key.values()):
-                key: str = f.key  # type: ignore
-                if key in futures_by_key:
-                    # Very important to delete the future here, otherwise the Dask
-                    # cluster will keep all targets in memory because it thinks we
-                    # need them later.
-                    del futures_by_key[key]
-                    pbar.update(1)
 
             value = compute_dask_graph(graph)
 
-        return value
+            return value
 
     def _scheduler_address(self):
         return self.client.scheduler_info()["address"]
@@ -93,7 +99,11 @@ def wrap_task(cfg: Mapping[str, Any], task: AbstractTask, *args, **kwargs):
 
 
 def create_dask_graph(
-    task: TaskTree, client: Client, backend_spec: "Optional[BackendSpec]", on_task=None
+    task: TaskTree,
+    client: Client,
+    backend_spec: "Optional[BackendSpec]",
+    on_task=None,
+    on_future=None,
 ) -> tuple[TypeTree[Future], dict[str, Future]]:
     task_keys = {}
 
@@ -116,6 +126,9 @@ def create_dask_graph(
             future = client.submit(
                 wrap_task, cfg, task, backend_spec=backend_spec, key=task._unique_key()
             )
+
+        if on_future is not None:
+            on_future(future)
 
         return future
 

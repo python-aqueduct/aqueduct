@@ -1,7 +1,7 @@
 from typing import Any, Mapping, TypeAlias, TypeVar, TYPE_CHECKING, Type
 
 if TYPE_CHECKING:
-    from .task import AbstractTask
+    from ..task import AbstractTask
 
 
 config: Mapping[str, Any] = {}

@@ -45,8 +45,8 @@ READER_OF_SUFFIX = {
 
 WRITERS = {
     pd.DataFrame: write_to_parquet,
-    xr.Dataset: xr.open_dataset,
-    xr.DataArray: xr.open_dataarray,
+    xr.Dataset: write_to_netcdf,
+    xr.DataArray: write_to_netcdf,
 }
 
 
@@ -160,13 +160,16 @@ class Task(AbstractTask[_T]):
         artifact_spec = self.artifact()
 
         force_run = getattr(self, "_aq_force_root", False)
-
         if artifact_spec is None:
             _logger.info(f"Running task {self}")
             result = self.run(*args, **kwargs)
         else:
             artifact = resolve_artifact_from_spec(artifact_spec)
-            if artifact.exists() and not force_run:
+            if (
+                artifact.exists()
+                and not force_run
+                and artifact.last_modified() > self._resolve_update_time()
+            ):
                 _logger.info(f"Loading result of {self} from {artifact}")
                 result = self.load(artifact)
             else:

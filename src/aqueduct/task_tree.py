@@ -43,8 +43,9 @@ def _reduce_type_in_tree(
             acc = _reduce_type_in_tree(v, type, reduce_fn, acc)
         return acc
     elif isinstance(tree, type):
-        breakpoint()
         return reduce_fn(tree, acc)
+    elif tree is None:
+        return acc
     else:
         raise ValueError(f"Could not handle tree node {tree}.")
 

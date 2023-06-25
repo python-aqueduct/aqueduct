@@ -1,8 +1,11 @@
+import datetime
+from typing import Optional
 import unittest
 
 import pandas as pd
 
 from aqueduct.artifact import (
+    Artifact,
     ArtifactSpec,
     InMemoryArtifact,
     CompositeArtifact,
@@ -196,3 +199,63 @@ class TestAggregateTask(unittest.TestCase):
 
         self.assertIsInstance(resolved_artifact, CompositeArtifact)
         self.assertEqual(2, len(resolved_artifact.artifacts))
+
+
+class FixedDateArtifact(Artifact):
+    def __init__(self, date):
+        self.date = date
+
+    def last_modified(self):
+        return self.date
+
+    def exists(self):
+        return True
+
+    def size(self):
+        return 0
+
+
+class TaskDependsOnDate(Task):
+    def requirements(self):
+        return {"nested": TaskWithDate()}
+
+    def artifact(self):
+        return FixedDateArtifact(datetime.datetime(2021, 1, 1))
+
+
+class TaskNoDate(Task):
+    pass
+
+
+class TaskWithDate(Task):
+    AQ_UPDATED = "2022-01-01"
+
+    def artifact(self):
+        return FixedDateArtifact(datetime.datetime(2023, 1, 1))
+
+
+class FarDepOnDate(Task):
+    def requirements(self):
+        return TaskDependsOnDate()
+
+
+class TestUpdateTime(unittest.TestCase):
+    def test_own(self):
+        t = TaskWithDate()
+        self.assertEqual(datetime.datetime(2022, 1, 1), t._resolve_update_time())
+
+    def test_dependencies(self):
+        t = TaskDependsOnDate()
+        self.assertEqual(datetime.datetime(2022, 1, 1), t._resolve_update_time())
+
+    def test_stale_cache(self):
+        t = TaskDependsOnDate()
+        self.assertFalse(t.is_cached())
+
+    def test_good_cache(self):
+        t = TaskWithDate()
+        self.assertTrue(t.is_cached())
+
+    def test_doubly_nested_date(self):
+        t = FarDepOnDate()
+        self.assertEqual(datetime.datetime(2022, 1, 1), t._resolve_update_time())

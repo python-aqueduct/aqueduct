@@ -6,6 +6,8 @@ from typing import (
     Any,
     Callable,
     Optional,
+    Mapping,
+    Sequence,
     TypeVar,
     TypeAlias,
     Union,
@@ -137,7 +139,7 @@ def resolve_task_tree(
 
 def tasks_in_module(
     module_name: str, package: Optional[str] = None
-) -> set[Type["AbstractTask"]]:
+) -> Sequence[Type["AbstractTask"]]:
     from .task import AbstractTask
 
     mod = importlib.import_module(module_name, package=package)
@@ -149,7 +151,7 @@ def tasks_in_module(
             if inspect.getmodule(members[k]) == mod:
                 tasks.append(members[k])
 
-    return set(tasks)
+    return tasks
 
 
 def convert_size(size_bytes: int) -> str:

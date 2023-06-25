@@ -10,6 +10,7 @@ from typing import (
     overload,
 )
 
+import datetime
 import inspect
 import logging
 
@@ -17,6 +18,7 @@ import logging
 from ..artifact import Artifact, ArtifactSpec, resolve_artifact_from_spec
 from ..config import Config, ConfigSpec, resolve_config_from_spec
 from .autoresolve import WrapInitMeta
+from ..task_tree import _reduce_type_in_tree
 
 
 if TYPE_CHECKING:
@@ -40,6 +42,10 @@ class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
     to a `str`, the string is used as a key to retrieve the configuration from the
     global configuration dict. If set to `None`, the full class name is used as the
     configuration section for the task."""
+
+    AQ_UPDATED: str | datetime.datetime | None = None
+    """If set, sent through `pd.to_datetime`. Any artifacts older than the resulting
+    date are considered stale and recomputed."""
 
     def __init__(self):
         """The __init__ method of a :class:`Task` automatically retrieves the value of
@@ -85,11 +91,54 @@ class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
             A boolean indicating if there exists a stored artifact as specified by the
             `artifact` method."""
         artifact_spec = self.artifact()
+        update_time = self._resolve_update_time()
 
-        return (
-            artifact_spec is not None
-            and resolve_artifact_from_spec(artifact_spec).exists()
-        )
+        if artifact_spec is not None:
+            artifact = resolve_artifact_from_spec(artifact_spec)
+
+            if artifact.exists() and artifact.last_modified() > update_time:
+                return True
+            if artifact.exists() and artifact.last_modified() <= update_time:
+                _logger.info(
+                    f"Detected artifact older than AQ_UPDATED for task {self}."
+                )
+                return False
+
+        return False
+
+    def _resolve_own_update_time(self) -> datetime.datetime:
+        if self.AQ_UPDATED is None:
+            return datetime.datetime.fromtimestamp(0)
+        elif isinstance(self.AQ_UPDATED, str):
+            return datetime.datetime.fromisoformat(self.AQ_UPDATED)
+        elif isinstance(self.AQ_UPDATED, datetime.datetime):
+            return self.AQ_UPDATED
+        else:
+            raise ValueError("Could not interpret value of AQ_UPDATED")
+
+    def _resolve_update_time(self) -> datetime.datetime:
+        # We don't use _resolve_requirements here because we don't care about cache
+        # behavior. We want to decide what is the date of the code, and then we decide
+        # if the cache is stale or not.
+
+        # def reduce_fn(task: AbstractTask, acc: datetime.datetime):
+        #     requirements = task.requirements()
+        #     if requirements is not None:
+        #         time_of_reqs = _reduce_type_in_tree(
+        #             requirements, AbstractTask, reduce_fn, acc
+        #         )
+        #     else:
+        #         time_of_reqs = datetime.datetime.fromtimestamp(0)
+
+        #     own_time = task._resolve_own_update_time()
+
+        #     return max(time_of_reqs, own_time)
+
+        # update_time = _reduce_type_in_tree(
+        #     self, AbstractTask, reduce_fn, datetime.datetime.fromtimestamp(0)
+        # )
+
+        return datetime.datetime.fromtimestamp(0)
 
     def requirements(self) -> "TaskTree":
         """Subclass this to express the Tasks that are required for this Task to run.
@@ -105,16 +154,10 @@ class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
         return None
 
     def _resolve_requirements(self, ignore_cache=False) -> "TaskTree":
-        artifact_spec = self.artifact()
+        force_run = getattr(self, "_aq_force_root", False)
 
-        if artifact_spec is not None:
-            artifact = resolve_artifact_from_spec(artifact_spec)
-            force_run = getattr(self, "_aq_force_root", False)
-
-            if artifact.exists() and not force_run and not ignore_cache:
-                return None
-            else:
-                return self.requirements()
+        if self.is_cached() and not force_run and not ignore_cache:
+            return None
         else:
             return self.requirements()
 
