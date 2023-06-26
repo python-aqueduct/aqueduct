@@ -21,9 +21,11 @@ _K = TypeVar("_K")
 _T = TypeVar("_T")
 _U = TypeVar("_U")
 
-TypeTree: TypeAlias = (
-    list["TypeTree[_T]"] | tuple["TypeTree[_T]"] | dict[Any, "TypeTree[_T]"] | _T | None
+TypeTreeIterables: TypeAlias = (
+    list["TypeTree[_T]"] | tuple["TypeTree[_T]"] | dict[Any, "TypeTree[_T]"]
 )
+
+TypeTree: TypeAlias = TypeTreeIterables[_T] | _T | None
 
 TaskTree: TypeAlias = TypeTree["AbstractTask"]
 
@@ -95,7 +97,7 @@ def _map_type_in_tree(
     tree: dict[_K, TypeTree[_T]],
     type: Type[_T],
     map_fn: Callable[[_T], _U],
-    on_expand: Optional[Callable[[Iterable[TypeTree[_T]]], None]] = None,
+    on_expand: Optional[Callable[[TypeTreeIterables[_T]], None]] = None,
     before_map: Optional[Callable[[_T], None]] = None,
     after_map: Optional[Callable[[_U], None]] = None,
 ) -> dict[_K, TypeTree[_U]]:
@@ -131,7 +133,7 @@ def _map_type_in_tree(
     tree: None,
     type: Type[_T],
     map_fn: Callable[[_T], _U],
-    on_expand: Optional[Callable[[Iterable[TypeTree[_T]]], None]] = None,
+    on_expand: Optional[Callable[[TypeTreeIterables[_T]], None]] = None,
     before_map: Optional[Callable[[_T], None]] = None,
     after_map: Optional[Callable[[_U], None]] = None,
 ) -> None:
@@ -142,7 +144,7 @@ def _map_type_in_tree(
     tree: TypeTree[_T],
     type: Type[_T],
     map_fn: Callable[[_T], _U],
-    on_expand: Optional[Callable[[Iterable[TypeTree[_T]]], None]] = None,
+    on_expand: Optional[Callable[[TypeTreeIterables[_T]], None]] = None,
     before_map: Optional[Callable[[_T], None]] = None,
     after_map: Optional[Callable[[_U], None]] = None,
 ) -> TypeTree[_U]:

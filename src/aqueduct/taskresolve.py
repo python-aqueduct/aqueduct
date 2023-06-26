@@ -1,4 +1,4 @@
-from typing import Any, Mapping, Sequence, Type, Optional
+from typing import Any, Mapping, Sequence, Type, Optional, Iterable
 import importlib.metadata
 import logging
 import omegaconf
@@ -10,18 +10,15 @@ from .config.configsource import ConfigSource
 _logger = logging.getLogger(__name__)
 
 
-def resolve_extensions() -> (
-    tuple[Mapping[str, Type[AbstractTask]], Mapping[str, ConfigSource]]
-):
+def create_task_index(
+    project_name_to_module_names: Mapping[str, Iterable[str]]
+) -> tuple[Mapping[str, Type[AbstractTask]], Mapping[str, ConfigSource]]:
     """Build various indexes for extension modules so that we can recover tasks and
     their configurations."""
-    module_entry_points = importlib.metadata.entry_points(group="aqueduct_modules")
-
-    module_names_of_project = {ep.name: ep.load()() for ep in module_entry_points}
     project_of_module_name = {
         module_name: p
-        for p in module_names_of_project
-        for module_name in module_names_of_project[p]
+        for p in project_name_to_module_names
+        for module_name in project_name_to_module_names[p]
     }
 
     module_name_of_task_class: Mapping[Type[AbstractTask], Any] = {}
@@ -54,7 +51,7 @@ def resolve_extensions() -> (
     return task_class_of_name, config_provider_of_name
 
 
-def get_modules() -> Mapping[str, Sequence[str]]:
+def get_modules_from_extensions() -> Mapping[str, Sequence[str]]:
     module_entry_points = importlib.metadata.entry_points(group="aqueduct_modules")
     modules = {}
     for ep in module_entry_points:
@@ -77,7 +74,7 @@ def _resolve_task_class_from_modules_dict(
 
 
 def resolve_task_class(task_name: str) -> Type[AbstractTask]:
-    modules_per_project = get_modules()
+    modules_per_project = get_modules_from_extensions()
     tasks_per_module = {
         m: tasks_in_module(m)
         for p in modules_per_project
@@ -91,7 +88,7 @@ def resolve_task_class(task_name: str) -> Type[AbstractTask]:
 def resolve_task_and_project_config_source(
     task_name: str,
 ) -> tuple[Type[AbstractTask], Optional[ConfigSource]]:
-    modules_per_project = get_modules()
+    modules_per_project = get_modules_from_extensions()
 
     tasks_per_module = {
         m: tasks_in_module(m)

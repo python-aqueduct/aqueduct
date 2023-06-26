@@ -1,4 +1,4 @@
-from typing import Mapping, Sequence, Type, Optional, Type
+from typing import Mapping, Sequence, Type, Optional, Type, Iterable
 
 import argparse
 import importlib.metadata
@@ -15,15 +15,27 @@ from .config.aqueduct import DefaultAqueductConfigSource
 from .config.configsource import DotListConfigSource, ConfigSource
 from .config.taskargs import TaskArgsConfigSource
 from .task import AbstractTask
-from .taskresolve import get_modules, resolve_task_class, resolve_extensions
+from .taskresolve import (
+    get_modules_from_extensions,
+    resolve_task_class,
+    create_task_index,
+)
 from .util import tasks_in_module
 
 
 logger = logging.getLogger(__name__)
 
 
+def resolve_source_modules(ns: argparse.Namespace) -> Mapping[str, Iterable[str]]:
+    if ns.module is not None:
+        return {"default": [ns.module]}
+    else:
+        return get_modules_from_extensions()
+
+
 def list_tasks(ns: argparse.Namespace, remaining_args: list):
-    modules_per_project = get_modules()
+    modules_per_project = resolve_source_modules(ns)
+    breakpoint()
 
     for p in modules_per_project:
         print(p)
@@ -43,7 +55,10 @@ def list_tasks(ns: argparse.Namespace, remaining_args: list):
 
 
 def run(ns: argparse.Namespace, remaining_args: list):
-    name2task, name2config_provider = resolve_extensions()
+    project_name_to_module_names = resolve_source_modules(ns)
+
+    breakpoint()
+    name2task, name2config_provider = create_task_index(project_name_to_module_names)
     task_class = name2task[ns.task_name]
     config_source = name2config_provider.get(ns.task_name, None)
     cfg = resolve_config(ns.overrides, task_class, config_source)
@@ -98,16 +113,26 @@ def resolve_config(
 
 
 def config_cli(ns, remaining_args):
-    name2task, name2config_source = resolve_extensions()
+    source_modules = resolve_source_modules()
+    name2task, name2config_source = create_task_index(source_modules)
 
     if ns.show:
-        cfg = resolve_config(ns.overrides, task_class=name2task[ns.task_name])
+        cfg = resolve_config(ns.overrides, task_class=name2task[ns.task])
         print(omegaconf.OmegaConf.to_yaml(cfg, resolve=ns.resolve))
 
 
 def cli():
     parser = argparse.ArgumentParser(prog="aq", description="Aqueduct CLI")
     parser.add_argument("--verbose", action="store_true", help="Log debug output.")
+    parser.add_argument(
+        "--module",
+        type=str,
+        help=(
+            "Full path of module where to get the Task from. If left unspecified, "
+            "available modules are fetched globally from extensions."
+        ),
+        default=None,
+    )
     parser.set_defaults(func=lambda ns: parser.print_usage())
 
     subparsers = parser.add_subparsers(title="Actions", dest="action")
@@ -130,6 +155,7 @@ def cli():
         action="store_true",
         help="Ignore cache for the root task and force it to run.",
     )
+
     run_parser.set_defaults(func=run)
 
     list_parser = subparsers.add_parser("list", aliases=["ls"])
