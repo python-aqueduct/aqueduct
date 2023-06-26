@@ -57,7 +57,6 @@ def list_tasks(ns: argparse.Namespace, remaining_args: list):
 def run(ns: argparse.Namespace, remaining_args: list):
     project_name_to_module_names = resolve_source_modules(ns)
 
-    breakpoint()
     name2task, name2config_provider = create_task_index(project_name_to_module_names)
     task_class = name2task[ns.task_name]
     config_source = name2config_provider.get(ns.task_name, None)
