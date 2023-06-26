@@ -93,7 +93,7 @@ def resolve_config(
     task_class: Optional[Type[AbstractTask]] = None,
     task_config_provider: Optional[ConfigSource] = None,
 ):
-    config_sources = [DefaultAqueductConfigSource()]
+    config_sources: list[ConfigSource] = [DefaultAqueductConfigSource()]
 
     if task_config_provider is not None:
         config_sources.append(task_config_provider)
@@ -113,7 +113,7 @@ def resolve_config(
 
 
 def config_cli(ns, remaining_args):
-    source_modules = resolve_source_modules()
+    source_modules = resolve_source_modules(ns)
     name2task, name2config_source = create_task_index(source_modules)
 
     if ns.show:

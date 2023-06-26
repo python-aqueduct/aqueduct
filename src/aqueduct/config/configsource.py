@@ -2,7 +2,7 @@ from typing import Callable, TypeAlias
 
 import omegaconf
 
-ConfigSource: TypeAlias = Callable[[], omegaconf.OmegaConf]
+ConfigSource: TypeAlias = Callable[[], omegaconf.DictConfig | omegaconf.ListConfig]
 
 
 class YamlConfigSource:
