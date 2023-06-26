@@ -14,8 +14,16 @@ class YamlConfigSource:
 
 
 class DotListConfigSource:
-    def __init__(self, dotlist):
+    def __init__(self, dotlist, section=""):
         self.dotlist = dotlist
+        self.section = section
 
     def __call__(self):
-        return omegaconf.OmegaConf.from_dotlist(self.dotlist)
+        if not self.section:
+            return omegaconf.OmegaConf.from_dotlist(self.dotlist)
+        else:
+            base = omegaconf.OmegaConf.create()
+            inner = omegaconf.OmegaConf.from_dotlist(self.dotlist)
+            omegaconf.OmegaConf.update(base, self.section, inner)
+
+            return base

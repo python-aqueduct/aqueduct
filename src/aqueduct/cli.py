@@ -1,4 +1,13 @@
-from typing import Mapping, Sequence, Type, Optional, Type, Iterable
+from typing import (
+    Callable,
+    Mapping,
+    Sequence,
+    Type,
+    Optional,
+    Type,
+    Iterable,
+    TypeAlias,
+)
 
 import argparse
 import importlib.metadata
@@ -22,6 +31,7 @@ from .taskresolve import (
 )
 from .util import tasks_in_module
 
+OmegaConfig: TypeAlias = omegaconf.DictConfig | omegaconf.ListConfig
 
 logger = logging.getLogger(__name__)
 
@@ -59,12 +69,22 @@ def run(ns: argparse.Namespace, remaining_args: list):
 
     name2task, name2config_provider = create_task_index(project_name_to_module_names)
     task_class = name2task[ns.task_name]
-    config_source = name2config_provider.get(ns.task_name, None)
-    cfg = resolve_config(ns.overrides, task_class, config_source)
+    task_config_source = name2config_provider.get(ns.task_name, None)
+    config_sources = get_config_sources(
+        ns.parameters, ns.overrides, task_class, task_config_source
+    )
+    cfg = resolve_config(config_sources)
+
+    if ns.cfg:
+        print(omegaconf.OmegaConf.to_yaml(cfg))
+        return
+
     set_config(cfg)
 
     TaskClass = resolve_task_class(ns.task_name)
     task = TaskClass()
+
+    logger.info(f"Running task {task}")
 
     if ns.force_root:
         task.set_force_root(True)
@@ -87,7 +107,8 @@ def run(ns: argparse.Namespace, remaining_args: list):
             print(result)
 
 
-def resolve_config(
+def get_config_sources(
+    parameters: Sequence[str],
     overrides: Sequence[str],
     task_class: Optional[Type[AbstractTask]] = None,
     task_config_provider: Optional[ConfigSource] = None,
@@ -97,26 +118,50 @@ def resolve_config(
     if task_config_provider is not None:
         config_sources.append(task_config_provider)
 
-    if task_class is not None:
-        config_sources.append(TaskArgsConfigSource(task_class))
-
     config_sources.append(DotListConfigSource(overrides))
 
+    if task_class is not None:
+        config_sources.append(
+            DotListConfigSource(parameters, section=task_class._fully_qualified_name())
+        )
+
+    return config_sources
+
+
+def resolve_config(config_sources: Iterable[ConfigSource]):
     cfgs = []
     for config_source in config_sources:
         cfg = config_source()
         omegaconf.OmegaConf.set_struct(cfg, False)
         cfgs.append(cfg)
 
-    return omegaconf.OmegaConf.merge(*cfgs)
+    return omegaconf.OmegaConf.unsafe_merge(*cfgs)
 
 
 def config_cli(ns, remaining_args):
     source_modules = resolve_source_modules(ns)
     name2task, name2config_source = create_task_index(source_modules)
 
+    config_sources = get_config_sources(
+        ns.parameters,
+        ns.overrides,
+        name2task[ns.task],
+        name2config_source.get(ns.task, None),
+    )
+
+    if ns.sources:
+        for source in config_sources:
+            print(source)
+            print()
+            yaml_str = omegaconf.OmegaConf.to_yaml(source(), resolve=ns.resolve)
+            lines = yaml_str.splitlines()
+            for l in lines:
+                print(f"  {l}")
+
+            print()
+
     if ns.show:
-        cfg = resolve_config(ns.overrides, task_class=name2task[ns.task])
+        cfg = resolve_config(config_sources)
         print(omegaconf.OmegaConf.to_yaml(cfg, resolve=ns.resolve))
 
 
@@ -144,17 +189,29 @@ def cli():
         help="Start IPython interpreter after the result has been computed.",
     )
     run_parser.add_argument(
-        "overrides",
+        "parameters",
         nargs="*",
-        help="Overrides to apply to the config, i.e. `my_option=1 deep.option=2`. Useful to set the parameters of the task.",
         type=str,
+        help="Overrides to apply to the task.",
+        default=[],
+    )
+    run_parser.add_argument(
+        "--overrides",
+        nargs="*",
+        help="Overrides to apply to the global config, i.e. `my_option=1 deep.option=2`. Useful to set the parameters of the task.",
+        type=str,
+        default=[],
     )
     run_parser.add_argument(
         "--force-root",
         action="store_true",
         help="Ignore cache for the root task and force it to run.",
     )
-
+    run_parser.add_argument(
+        "--cfg",
+        action="store_true",
+        help="Show the resolved configuration for the task and exit.",
+    )
     run_parser.set_defaults(func=run)
 
     list_parser = subparsers.add_parser("list", aliases=["ls"])
@@ -169,20 +226,35 @@ def cli():
         help="Resolve interpolations before printing the configuration.",
     )
     config_parser.add_argument(
+        "--sources",
+        action="store_true",
+        help="Show the contribution of each config source.",
+    )
+    config_parser.add_argument(
         "--task",
         type=str,
         default=None,
         help="Show the config that would be used if this task was run.",
     )
     config_parser.add_argument(
-        "overrides",
+        "parameters",
         nargs="*",
-        help="Overrides to apply to the config, i.e. `my_option=1 deep.option=2`",
+        help="Overrides to apply to the task parameters, i.e. `my_param=1`",
         type=str,
+        default=[],
+    )
+    config_parser.add_argument(
+        "--overrides",
+        nargs="*",
+        help="Overrides to apply to the global configuration, i.e. `my_option=1 deep.option=2`",
+        type=str,
+        default=[],
     )
     config_parser.set_defaults(func=config_cli)
 
     ns, remaining_args = parser.parse_known_args()
+
+    print(ns)
 
     level = "DEBUG" if ns.verbose else "INFO"
     logging.basicConfig(level=level, stream=sys.stdout)

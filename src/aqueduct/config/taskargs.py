@@ -45,7 +45,4 @@ class TaskArgsConfigSource:
 
         merged_cfg = omegaconf.OmegaConf.merge(deep_conf, signature_conf)
 
-        print("Merge")
-        print(merged_cfg)
-
         return merged_cfg

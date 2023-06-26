@@ -22,8 +22,8 @@ def create_task_index(
     }
 
     module_name_of_task_class: Mapping[Type[AbstractTask], Any] = {}
-    for project in module_names_of_project:
-        for module_name in module_names_of_project[project]:
+    for project in project_name_to_module_names:
+        for module_name in project_name_to_module_names[project]:
             task_classes = tasks_in_module(module_name)
             for t in task_classes:
                 module_name_of_task_class[t] = module_name
