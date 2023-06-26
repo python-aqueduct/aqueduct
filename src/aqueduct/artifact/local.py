@@ -41,6 +41,7 @@ class LocalFilesystemArtifact(TextStreamArtifact, StreamArtifact):
             return reader(f)
 
     def dump(self, object: _T, writer: Callable[[_T, BinaryIO], None]):
+        self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open("wb") as f:
             writer(object, f)
 
@@ -49,6 +50,7 @@ class LocalFilesystemArtifact(TextStreamArtifact, StreamArtifact):
             return reader(f)
 
     def dump_text(self, object: _T, writer: Callable[[_T, TextIO], None] = write_str):
+        self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open("w") as f:
             writer(object, f)
 

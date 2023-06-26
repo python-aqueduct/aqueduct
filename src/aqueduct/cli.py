@@ -19,6 +19,7 @@ import sys
 import xarray as xr
 
 from .artifact import Artifact
+from .backend import resolve_backend_from_spec
 from .config import set_config
 from .config.aqueduct import DefaultAqueductConfigSource
 from .config.configsource import DotListConfigSource, ConfigSource
@@ -81,6 +82,8 @@ def run(ns: argparse.Namespace, remaining_args: list):
 
     set_config(cfg)
 
+    backend = resolve_backend_from_spec(cfg.aqueduct.backend)
+
     TaskClass = resolve_task_class(ns.task_name)
     task = TaskClass()
 
@@ -89,7 +92,7 @@ def run(ns: argparse.Namespace, remaining_args: list):
     if ns.force_root:
         task.set_force_root(True)
 
-    result = task.result()
+    result = backend.execute(task)
 
     if ns.ipython:
         import IPython
@@ -145,7 +148,7 @@ def config_cli(ns, remaining_args):
     config_sources = get_config_sources(
         ns.parameters,
         ns.overrides,
-        name2task[ns.task],
+        name2task.get(ns.task, None),
         name2config_source.get(ns.task, None),
     )
 
