@@ -12,20 +12,21 @@ from typing import (
     TypeAlias,
     TypeVar,
     TYPE_CHECKING,
+    Union,
 )
 
 if TYPE_CHECKING:
     from .task import AbstractTask
 
 _K = TypeVar("_K")
+_A = TypeVar("_A")
 _T = TypeVar("_T")
 _U = TypeVar("_U")
 
-TypeTreeIterables: TypeAlias = (
-    list["TypeTree[_T]"] | tuple["TypeTree[_T]"] | dict[Any, "TypeTree[_T]"]
-)
 
-TypeTree: TypeAlias = TypeTreeIterables[_T] | _T | None
+TypeTree: TypeAlias = (
+    list["TypeTree[_T]"] | tuple["TypeTree[_T]"] | dict[Any, "TypeTree[_T]"] | _T | None
+)
 
 TaskTree: TypeAlias = TypeTree["AbstractTask"]
 
@@ -33,9 +34,9 @@ TaskTree: TypeAlias = TypeTree["AbstractTask"]
 def _reduce_type_in_tree(
     tree: TypeTree[_T],
     type: Type[_T],
-    reduce_fn: Callable[[_T, _U], _U],
-    acc: _U,
-) -> _U:
+    reduce_fn: Callable[[_T, _A], _A],
+    acc: _A,
+) -> _A:
     if isinstance(tree, (list, tuple)):
         for x in tree:
             acc = _reduce_type_in_tree(x, type, reduce_fn, acc)
@@ -62,57 +63,42 @@ def gather_tasks_in_tree(tree: TypeTree["AbstractTask"]) -> list["AbstractTask"]
     return _reduce_type_in_tree(tree, AbstractTask, reduce_fn, [])
 
 
-def _map_type_in_list(
-    tree: list[TypeTree[_T]], type: Type[_T], map_fn: Callable[[_T], _U], **kwargs
-) -> list[TypeTree[_U]]:
-    return [_map_type_in_tree(x, type, map_fn, **kwargs) for x in tree]
-
-
-def _map_type_in_tuple(
-    tree: tuple[TypeTree[_T]], type: Type[_T], map_fn: Callable[[_T], _U], **kwargs
-) -> tuple[TypeTree[_U]]:
-    return tuple([_map_type_in_tree(x, type, map_fn, **kwargs) for x in tree])
-
-
-def _map_type_in_dict(
-    tree: dict[_K, TypeTree[_T]], type: Type[_T], map_fn: Callable[[_T], _U], **kwargs
-) -> dict[_K, TypeTree[_U]]:
-    return {k: _map_type_in_tree(tree[k], type, map_fn, **kwargs) for k in tree}
+OneExpandCallback: TypeAlias = Callable[[list | tuple | dict], None]
 
 
 @overload
 def _map_type_in_tree(
-    tree: list[TypeTree[_T]],
+    tree: list,
     type: Type[_T],
     map_fn: Callable[[_T], _U],
-    on_expand: Optional[Callable[[Iterable[TypeTree[_T]]], None]] = None,
+    on_expand: Optional[OneExpandCallback] = None,
     before_map: Optional[Callable[[_T], None]] = None,
     after_map: Optional[Callable[[_U], None]] = None,
-) -> list[TypeTree[_U]]:
+) -> list:
     ...
 
 
 @overload
 def _map_type_in_tree(
-    tree: dict[_K, TypeTree[_T]],
+    tree: dict[_K, Any],
     type: Type[_T],
     map_fn: Callable[[_T], _U],
-    on_expand: Optional[Callable[[TypeTreeIterables[_T]], None]] = None,
+    on_expand: Optional[OneExpandCallback] = None,
     before_map: Optional[Callable[[_T], None]] = None,
     after_map: Optional[Callable[[_U], None]] = None,
-) -> dict[_K, TypeTree[_U]]:
+) -> dict[_K, Any]:
     ...
 
 
 @overload
 def _map_type_in_tree(
-    tree: tuple[TypeTree[_T]],
+    tree: tuple,
     type: Type[_T],
     map_fn: Callable[[_T], _U],
-    on_expand: Optional[Callable[[Iterable[TypeTree[_T]]], None]] = None,
+    on_expand: Optional[OneExpandCallback] = None,
     before_map: Optional[Callable[[_T], None]] = None,
     after_map: Optional[Callable[[_U], None]] = None,
-) -> tuple[TypeTree[_U]]:
+) -> tuple:
     ...
 
 
@@ -121,7 +107,7 @@ def _map_type_in_tree(
     tree: _T,
     type: Type[_T],
     map_fn: Callable[[_T], _U],
-    on_expand: Optional[Callable[[Iterable[TypeTree[_T]]], None]] = None,
+    on_expand: Optional[OneExpandCallback] = None,
     before_map: Optional[Callable[[_T], None]] = None,
     after_map: Optional[Callable[[_U], None]] = None,
 ) -> _U:
@@ -130,24 +116,24 @@ def _map_type_in_tree(
 
 @overload
 def _map_type_in_tree(
-    tree: None,
+    tree: Any,
     type: Type[_T],
     map_fn: Callable[[_T], _U],
-    on_expand: Optional[Callable[[TypeTreeIterables[_T]], None]] = None,
+    on_expand: Optional[OneExpandCallback] = None,
     before_map: Optional[Callable[[_T], None]] = None,
     after_map: Optional[Callable[[_U], None]] = None,
-) -> None:
+) -> Any:
     ...
 
 
 def _map_type_in_tree(
-    tree: TypeTree[_T],
+    tree: Any,
     type: Type[_T],
     map_fn: Callable[[_T], _U],
-    on_expand: Optional[Callable[[TypeTreeIterables[_T]], None]] = None,
+    on_expand: Optional[OneExpandCallback] = None,
     before_map: Optional[Callable[[_T], None]] = None,
     after_map: Optional[Callable[[_U], None]] = None,
-) -> TypeTree[_U]:
+) -> Any:
     if isinstance(tree, (list, tuple, dict)):
         if on_expand is not None:
             on_expand(tree)
@@ -159,11 +145,11 @@ def _map_type_in_tree(
         }
 
         if isinstance(tree, list):
-            return _map_type_in_list(tree, type, map_fn, **kwargs)
+            return [_map_type_in_tree(x, type, map_fn, **kwargs) for x in tree]
         elif isinstance(tree, tuple):
-            return _map_type_in_tuple(tree, type, map_fn, **kwargs)
+            return tuple([_map_type_in_tree(x, type, map_fn, **kwargs) for x in tree])
         elif isinstance(tree, dict):
-            return _map_type_in_dict(tree, type, map_fn, **kwargs)
+            return {k: _map_type_in_tree(tree[k], type, map_fn, **kwargs) for k in tree}
     elif isinstance(tree, type):
         if before_map:
             before_map(tree)
@@ -172,8 +158,6 @@ def _map_type_in_tree(
             after_map(mapped)
 
         return mapped
-    elif tree is None:
-        return None
     else:
         raise ValueError(f"Could not handle tree node {tree}.")
 
