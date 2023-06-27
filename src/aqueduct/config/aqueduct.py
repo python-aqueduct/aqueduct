@@ -10,6 +10,7 @@ from ..backend.base import BackendDictSpec
 class AqueductConfig:
     local_store: str
     backend: Any
+    check_storage: bool = False
 
 
 class DefaultAqueductConfigSource:

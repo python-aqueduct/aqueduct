@@ -3,14 +3,14 @@ import functools
 import inspect
 from typing import cast, Type, Callable, Any, TYPE_CHECKING, Mapping, Tuple
 
-from ..config import Config, resolve_config_from_spec
+from ..config import AqueductConfig, resolve_config_from_spec
 
 if TYPE_CHECKING:
     from .abstract_task import AbstractTask
 
 
 def fetch_args_from_config(
-    cfg: Config, fn: Callable, *args, **kwargs: Mapping[str, Any]
+    cfg: AqueductConfig, fn: Callable, *args, **kwargs: Mapping[str, Any]
 ) -> Tuple[Tuple, Mapping[str, Any]]:
     """Given a callable and a configuration dict, try and fetch argument values from
     the config dict if needed.

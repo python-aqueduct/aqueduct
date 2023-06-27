@@ -2,6 +2,7 @@ import datetime
 from typing import Optional
 import unittest
 
+import omegaconf as oc
 import pandas as pd
 
 from aqueduct.artifact import (
@@ -64,7 +65,7 @@ class TestResolveConfig(unittest.TestCase):
                 pass
 
         task = LocalTask()
-        self.assertDictEqual(task.cfg(), task.config())
+        self.assertEqual(task.cfg(), oc.OmegaConf.create(task.config()))
 
     def test_resolve_str(self):
         cfg = {"section": {"value": 2}}
@@ -78,7 +79,7 @@ class TestResolveConfig(unittest.TestCase):
 
         task = LocalTask()
 
-        self.assertDictEqual({"value": 2}, task.config())
+        self.assertEqual(oc.OmegaConf.create({"value": 2}), task.config())
 
     def test_resolve_object_name_class(self):
         inner_dict = {"a": 1, "b": 2}
@@ -87,7 +88,7 @@ class TestResolveConfig(unittest.TestCase):
         t = PretenseTask(14)
         config = resolve_config_from_spec(None, t)
 
-        self.assertDictEqual(config, inner_dict)
+        self.assertEqual(config, inner_dict)
 
 
 class TestFetchArgs(unittest.TestCase):

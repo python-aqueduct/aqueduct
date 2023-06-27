@@ -44,7 +44,7 @@ def resolve_source_modules(ns: argparse.Namespace) -> Mapping[str, Iterable[str]
         return get_modules_from_extensions()
 
 
-def list_tasks(ns: argparse.Namespace, remaining_args: list):
+def list_tasks(ns: argparse.Namespace):
     modules_per_project = resolve_source_modules(ns)
 
     for p in modules_per_project:
@@ -64,7 +64,7 @@ def list_tasks(ns: argparse.Namespace, remaining_args: list):
                 print(f"        {task_string}")
 
 
-def run(ns: argparse.Namespace, remaining_args: list):
+def run(ns: argparse.Namespace):
     project_name_to_module_names = resolve_source_modules(ns)
 
     name2task, name2config_provider = create_task_index(project_name_to_module_names)
@@ -76,17 +76,19 @@ def run(ns: argparse.Namespace, remaining_args: list):
     cfg = resolve_config(config_sources)
 
     if ns.cfg:
-        print(omegaconf.OmegaConf.to_yaml(cfg))
+        print(omegaconf.OmegaConf.to_yaml(cfg, resolve=ns.resolve))
         return
 
     set_config(cfg)
 
     backend = resolve_backend_from_spec(cfg.aqueduct.backend)
 
+    logger.info(f"Using backend {backend}.")
+
     TaskClass = resolve_task_class(ns.task_name)
     task = TaskClass()
 
-    logger.info(f"Running task {task}")
+    logger.info(f"Running task {task.__class__.__qualname__}")
 
     if ns.force_root:
         task.set_force_root(True)
@@ -140,7 +142,7 @@ def resolve_config(config_sources: Iterable[ConfigSource]):
     return omegaconf.OmegaConf.unsafe_merge(*cfgs)
 
 
-def config_cli(ns, remaining_args):
+def config_cli(ns):
     source_modules = resolve_source_modules(ns)
     name2task, name2config_source = create_task_index(source_modules)
 
@@ -214,6 +216,9 @@ def cli():
         action="store_true",
         help="Show the resolved configuration for the task and exit.",
     )
+    run_parser.add_argument(
+        "--resolve", action="store_true", help="Resolve the config before printing."
+    )
     run_parser.set_defaults(func=run)
 
     list_parser = subparsers.add_parser("list", aliases=["ls"])
@@ -254,11 +259,11 @@ def cli():
     )
     config_parser.set_defaults(func=config_cli)
 
-    ns, remaining_args = parser.parse_known_args()
+    ns = parser.parse_args()
 
     print(ns)
 
     level = "DEBUG" if ns.verbose else "INFO"
     logging.basicConfig(level=level, stream=sys.stdout)
 
-    ns.func(ns, remaining_args)
+    ns.func(ns)

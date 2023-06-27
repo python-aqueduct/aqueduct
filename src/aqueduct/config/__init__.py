@@ -1,28 +1,37 @@
-from typing import Any, Mapping, TypeAlias, TypeVar, TYPE_CHECKING, Type
+from typing import Any, TypeAlias, TypeVar, TYPE_CHECKING, Type, Dict, Mapping
+
+import omegaconf as oc
 
 if TYPE_CHECKING:
     from ..task import AbstractTask
 
+OmegaConfig: TypeAlias = oc.DictConfig | oc.ListConfig
+config: oc.DictConfig = oc.OmegaConf.create()
 
-config: Mapping[str, Any] = {}
 
-
-def set_config(cfg):
+def set_config(cfg: OmegaConfig | Dict[Any, Any]):
     global config
-    config = cfg
+
+    if isinstance(cfg, oc.DictConfig):
+        config = cfg
+    elif isinstance(cfg, oc.ListConfig):
+        raise ValueError("Root config must be a DictConfig")
+    else:
+        user_config = oc.OmegaConf.create(cfg)
+        config = user_config
 
 
-def get_config() -> Mapping[str, Any]:
+def get_config() -> oc.DictConfig:
     global config
     return config
 
 
-Config: TypeAlias = Mapping[str, Any]
-ConfigSpec: TypeAlias = Config | str | None
+AqueductConfig: TypeAlias = oc.DictConfig
+ConfigSpec: TypeAlias = AqueductConfig | str | None
 T = TypeVar("T")
 
 
-def has_deep_key(d: Config, deep_key: str) -> bool:
+def has_deep_key(d: oc.DictConfig, deep_key: str) -> bool:
     keys = deep_key.split(".")
 
     for k in keys[:-1]:
@@ -34,7 +43,7 @@ def has_deep_key(d: Config, deep_key: str) -> bool:
     return keys[-1] in d
 
 
-def get_deep_key(d: Config, deep_key: str, default=None) -> Any:
+def get_deep_key(d: Mapping[Any, Any], deep_key: str, default=None) -> Any:
     keys = deep_key.split(".")
 
     cursor = d
@@ -53,9 +62,11 @@ def get_deep_key(d: Config, deep_key: str, default=None) -> Any:
 
 def resolve_config_from_spec(
     spec: ConfigSpec, calling_task: Type["AbstractTask"] | "AbstractTask"
-) -> Config:
-    if isinstance(spec, dict):
+) -> AqueductConfig:
+    if isinstance(spec, oc.DictConfig):
         return spec
+    elif isinstance(spec, dict):
+        return oc.OmegaConf.create(spec)  # type: ignore
 
     global_cfg = get_config()
 
@@ -66,7 +77,7 @@ def resolve_config_from_spec(
     ):
         return get_deep_key(global_cfg, calling_task._fully_qualified_name())
     else:
-        return {}
+        return oc.OmegaConf.create({})
 
 
 def get_aqueduct_config() -> dict:

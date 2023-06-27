@@ -5,7 +5,7 @@ import cloudpickle
 import logging
 
 from .backend import BackendSpec, resolve_backend_from_spec, Backend
-from .config import Config
+from .config import AqueductConfig
 from .task import AbstractTask
 
 T = TypeVar("T")
@@ -13,7 +13,7 @@ T = TypeVar("T")
 _logger = logging.getLogger(__name__)
 
 AQ_INJECTED_BACKEND_SPEC: Optional[Backend] = None
-AQ_INJECTED_CONFIG: Optional[Config] = None
+AQ_INJECTED_CONFIG: Optional[AqueductConfig] = None
 AQ_INJECTED_TASK: Optional[AbstractTask] = None
 AQ_MAGIC_DEFINED_TASK_CLASS: Optional[Type[AbstractTask]] = None
 AQ_INJECTED_REQUIREMENTS: Optional[Any] = None

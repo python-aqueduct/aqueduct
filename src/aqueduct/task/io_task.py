@@ -23,7 +23,7 @@ class IOTask(AbstractTask[T]):
     Note that, in an IOTask, the return value of `run` is ignored. This matches the
     expectation that IOTasks mostly act through side effects."""
 
-    def __call__(self, *args, backend_spec=None, **kwargs) -> Optional[Artifact]:
+    def __call__(self, *args, **kwargs) -> Optional[Artifact]:
         """Prepare the context and call `run`.
 
         Note that the user is responsible for creating the artifacts during `run`. The
@@ -52,7 +52,7 @@ class IOTask(AbstractTask[T]):
         if force_root or not artifact or not artifact.exists():
             self.run(*args, **kwargs)
 
-        if artifact and get_deep_key(global_config, "aqueduct.check_storage", False):
+        if artifact and global_config.aqueduct.get("check_storage", False):
             if not artifact.exists():
                 raise RuntimeError(
                     f"Task did not store artifact it promised: {artifact}"

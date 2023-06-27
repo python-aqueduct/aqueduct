@@ -16,7 +16,7 @@ import logging
 
 
 from ..artifact import Artifact, ArtifactSpec, resolve_artifact_from_spec
-from ..config import Config, ConfigSpec, resolve_config_from_spec
+from ..config import AqueductConfig, ConfigSpec, resolve_config_from_spec
 from .autoresolve import WrapInitMeta
 from ..task_tree import _reduce_type_in_tree
 
@@ -160,7 +160,7 @@ class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
         else:
             return self.requirements()
 
-    def config(self) -> Config:
+    def config(self) -> AqueductConfig:
         """Resolve the configuration as specified in the `CONFIG` class variable, and
         return it."""
         return resolve_config_from_spec(self.CONFIG, self.__class__)

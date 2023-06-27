@@ -8,7 +8,9 @@ from typing import (
     Literal,
 )
 
+import copy
 import logging
+import omegaconf as oc
 import tqdm
 
 from dask.distributed import Client, Future, as_completed, LocalCluster, wait
@@ -87,7 +89,7 @@ class DaskBackend(Backend):
         return f"DaskBackend(scheduler={self._scheduler_address()})"
 
 
-def wrap_task(cfg: Mapping[str, Any], task: AbstractTask, *args, **kwargs):
+def wrap_task(cfg: oc.DictConfig, task: AbstractTask, *args, **kwargs):
     set_config(cfg)
     return task(*args, **kwargs)
 
@@ -106,11 +108,13 @@ def create_dask_graph(
 
     def task_to_dask_future(task: AbstractTask, requirements=None) -> Future:
         cfg = get_config()
+        resolved_config = copy.deepcopy(cfg)
+        oc.OmegaConf.resolve(resolved_config)
 
         if requirements is not None:
             future = client.submit(
                 wrap_task,
-                cfg,
+                resolved_config,
                 task,
                 requirements,
                 backend_spec=backend_spec,
@@ -118,7 +122,11 @@ def create_dask_graph(
             )
         else:
             future = client.submit(
-                wrap_task, cfg, task, backend_spec=backend_spec, key=task._unique_key()
+                wrap_task,
+                resolved_config,
+                task,
+                backend_spec=backend_spec,
+                key=task._unique_key(),
             )
 
         if on_future is not None:
