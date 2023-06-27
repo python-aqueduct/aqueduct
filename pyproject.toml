@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "aqueduct"
 version = "20230523"
 dependencies = [
+    "bleach>=5",
     "dask",
     "distributed",
     "hydra-core",

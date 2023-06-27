@@ -105,5 +105,8 @@ class TextNotebookExport(unittest.TestCase):
     def test_export_ipynb(self):
         self.export_with_filename("test_notebook.ipynb")
 
+    def test_export_pdf(self):
+        self.export_with_filename("test_notebook.pdf")
+
     def tearDown(self):
         self.tmp_dir.rmdir()

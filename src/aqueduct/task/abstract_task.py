@@ -27,7 +27,6 @@ if TYPE_CHECKING:
 
 _T = TypeVar("_T")
 
-
 _logger = logging.getLogger(__name__)
 
 
@@ -96,9 +95,9 @@ class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
         if artifact_spec is not None:
             artifact = resolve_artifact_from_spec(artifact_spec)
 
-            if artifact.exists() and artifact.last_modified() > update_time:
+            if artifact.exists() and artifact.last_modified() >= update_time:
                 return True
-            if artifact.exists() and artifact.last_modified() <= update_time:
+            if artifact.exists() and artifact.last_modified() < update_time:
                 _logger.info(
                     f"Detected artifact older than AQ_UPDATED for task {self}."
                 )
@@ -220,15 +219,18 @@ class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
         return ArtifactTaskWrapper(self)
 
 
-class ArtifactTaskWrapper(AbstractTask):
-    def __init__(self, inner: AbstractTask):
+_Task = TypeVar("_Task", bound=AbstractTask)
+
+
+class ArtifactTaskWrapper(AbstractTask, Generic[_Task]):
+    def __init__(self, inner: _Task):
         self.inner = inner
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs) -> Artifact | None:
         if not self.inner.is_cached():
             self.inner.__call__(*args, **kwargs)
 
-        return self.inner.artifact()
+        return resolve_artifact_from_spec(self.inner.artifact())
 
     def artifact(self):
         return None

@@ -71,11 +71,12 @@ class TestCountTasks(unittest.TestCase):
 
         self.assertDictEqual(count, {"TaskA": 3, "TaskC": 1})
 
-    def test_cached(self):
+    def test_cached_requirements(self):
         t = TaskE()
 
         count = aq.count_tasks_to_run(t)
 
+        self.assertFalse(t.is_cached())
         self.assertEqual({"TaskE": 1}, count)
 
     def test_keep_cached(self):
@@ -88,6 +89,7 @@ class TestCountTasks(unittest.TestCase):
 
         count = aq.count_tasks_to_run(t)
 
+        self.assertTrue(t.is_cached())
         self.assertEqual({}, count)
 
 
@@ -95,4 +97,4 @@ class TestFindTasks(unittest.TestCase):
     def test_find_tasks_in_module(self):
         tasks = aq.tasks_in_module(__name__)
 
-        self.assertSetEqual(tasks, set([TaskA, TaskB, TaskC, TaskD, TaskE]))
+        self.assertSetEqual(set(tasks), set([TaskA, TaskB, TaskC, TaskD, TaskE]))
