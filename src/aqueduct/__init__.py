@@ -7,28 +7,29 @@ from .artifact import (
 from .artifact.util import artifact_report
 from .backend import ImmediateBackend, ConcurrentBackend, DaskBackend
 from .config import set_config, get_config
-from .task import IOTask, Task, AggregateTask, NotebookTask
+from .task import IOTask, Task, AggregateTask, NotebookTask, RepeaterTask
 from .util import count_tasks_to_run, tasks_in_module
 
 
 from . import notebook
 
 __all__ = [
-    "Artifact",
     "AggregateTask",
     "artifact_report",
-    "count_tasks_to_run",
+    "Artifact",
     "CompositeArtifact",
     "ConcurrentBackend",
+    "count_tasks_to_run",
     "DaskBackend",
     "get_config",
-    "tasks_in_module",
     "ImmediateBackend",
+    "IOTask",
     "LocalFilesystemArtifact",
     "LocalStoreArtifact",
-    "IOTask",
-    "NotebookTask",
-    "Task",
-    "set_config",
     "notebook",
+    "NotebookTask",
+    "RepeaterTask",
+    "set_config",
+    "Task",
+    "tasks_in_module",
 ]

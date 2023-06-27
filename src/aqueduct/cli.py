@@ -46,7 +46,6 @@ def resolve_source_modules(ns: argparse.Namespace) -> Mapping[str, Iterable[str]
 
 def list_tasks(ns: argparse.Namespace, remaining_args: list):
     modules_per_project = resolve_source_modules(ns)
-    breakpoint()
 
     for p in modules_per_project:
         print(p)

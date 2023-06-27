@@ -15,6 +15,7 @@ from .abstract_task import AbstractTask
 from .aggregate import AggregateTask
 from .io_task import IOTask
 from .notebook import NotebookTask
+from .repeater import RepeaterTask
 from .task import Task
 
 __all__ = [
@@ -23,4 +24,5 @@ __all__ = [
     "Task",
     "IOTask",
     "NotebookTask",
+    "RepeaterTask",
 ]

@@ -53,10 +53,7 @@ class DaskBackend(Backend):
 
             def on_future(future):
                 self.unique_keys_submitted.add(future.key)
-                try:
-                    future.add_done_callback(on_future_done)
-                except RuntimeError as e:
-                    breakpoint()
+                future.add_done_callback(on_future_done)
                 pbar.reset(total=len(self.unique_keys_submitted))
                 pbar.update(len(self.unique_keys_done))
                 pbar.refresh()

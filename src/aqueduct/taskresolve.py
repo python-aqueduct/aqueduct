@@ -98,6 +98,4 @@ def resolve_task_and_project_config_source(
 
     TaskClass = _resolve_task_class_from_modules_dict(tasks_per_module, task_name)
 
-    breakpoint()
-
     return (TaskClass, None)
