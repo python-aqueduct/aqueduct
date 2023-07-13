@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TypeVar, Optional
+from typing import TypeVar, Optional, TYPE_CHECKING
 
 import logging
 
@@ -8,6 +8,8 @@ from ..config import get_deep_key, get_config
 from ..artifact import Artifact
 from .abstract_task import AbstractTask
 
+if TYPE_CHECKING:
+    from ..backend import BackendSpec
 
 _logger = logging.getLogger(__name__)
 
@@ -23,7 +25,9 @@ class IOTask(AbstractTask[T]):
     Note that, in an IOTask, the return value of `run` is ignored. This matches the
     expectation that IOTasks mostly act through side effects."""
 
-    def __call__(self, *args, **kwargs) -> Optional[Artifact]:
+    def __call__(
+        self, *args, backend_spec: Optional["BackendSpec"] = None, **kwargs
+    ) -> Optional[Artifact]:
         """Prepare the context and call `run`.
 
         Note that the user is responsible for creating the artifacts during `run`. The

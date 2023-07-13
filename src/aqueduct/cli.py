@@ -30,6 +30,7 @@ from .taskresolve import (
     resolve_task_class,
     create_task_index,
 )
+from .task_tree import _map_tasks_in_tree
 from .util import tasks_in_module
 
 OmegaConfig: TypeAlias = omegaconf.DictConfig | omegaconf.ListConfig
@@ -64,6 +65,24 @@ def list_tasks(ns: argparse.Namespace):
                 print(f"        {task_string}")
 
 
+def print_task_tree(task: AbstractTask, ignore_cache=False):
+    def print_one_task(
+        task: AbstractTask,
+        indent=0,
+    ):
+        pad = " " * indent
+        print(f"{pad}{str(task)}")
+
+        reqs = task._resolve_requirements(ignore_cache=ignore_cache)
+
+        if reqs is not None:
+            _map_tasks_in_tree(
+                task.requirements(), lambda x: print_one_task(x, indent=indent + 1)
+            )
+
+    print_one_task(task)
+
+
 def run(ns: argparse.Namespace):
     project_name_to_module_names = resolve_source_modules(ns)
 
@@ -81,12 +100,15 @@ def run(ns: argparse.Namespace):
 
     set_config(cfg)
 
-    backend = resolve_backend_from_spec(cfg.aqueduct.backend)
-
-    logger.info(f"Using backend {backend}.")
-
     TaskClass = resolve_task_class(ns.task_name)
     task = TaskClass()
+
+    if ns.tree:
+        print_task_tree(task)
+        return
+
+    backend = resolve_backend_from_spec(cfg.aqueduct.backend)
+    logger.info(f"Using backend {backend}.")
 
     logger.info(f"Running task {task.__class__.__qualname__}")
 
@@ -212,13 +234,21 @@ def cli():
         help="Ignore cache for the root task and force it to run.",
     )
     run_parser.add_argument(
+        "--resolve", action="store_true", help="Resolve the config before printing."
+    )
+
+    run_parser_diagnostics_group = run_parser.add_mutually_exclusive_group()
+    run_parser_diagnostics_group.add_argument(
         "--cfg",
         action="store_true",
         help="Show the resolved configuration for the task and exit.",
     )
-    run_parser.add_argument(
-        "--resolve", action="store_true", help="Resolve the config before printing."
+    run_parser_diagnostics_group.add_argument(
+        "--tree",
+        action="store_true",
+        help="Print the task tree that would be executed and exit.",
     )
+
     run_parser.set_defaults(func=run)
 
     list_parser = subparsers.add_parser("list", aliases=["ls"])

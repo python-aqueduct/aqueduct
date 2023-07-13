@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 
 def fetch_args_from_config(
-    cfg: AqueductConfig, fn: Callable, *args, **kwargs: Mapping[str, Any]
+    cfg: Mapping[str, Any], fn: Callable, *args, **kwargs: Mapping[str, Any]
 ) -> Tuple[Tuple, Mapping[str, Any]]:
     """Given a callable and a configuration dict, try and fetch argument values from
     the config dict if needed.
