@@ -9,23 +9,9 @@ if TYPE_CHECKING:
     from .abstract_task import AbstractTask
 
 
-def fetch_args_from_config(
+def fetch_bind_from_config(
     cfg: Mapping[str, Any], fn: Callable, *args, **kwargs: Mapping[str, Any]
-) -> Tuple[Tuple, Mapping[str, Any]]:
-    """Given a callable and a configuration dict, try and fetch argument values from
-    the config dict if needed.
-
-    Arguments:
-        fn: The function for which we want to fetch arguments from config.
-        args: The arguments the functino would be called with.
-        kwargs: The kwargs the function would be called with.
-        cfg: The config dictionary from which to tech default values if needed.
-
-    Returns:
-        args: The same args, except if an argument is `None`, it is replaced by the
-            corresponding value in `cfg`, if it exists there.
-        kwargs: The same kwargs, except if an argument value was `None`, it is replaced
-            by the value of the corresponding key in `cfg`."""
+) -> inspect.BoundArguments:
     signature = inspect.signature(fn)
     bind = signature.bind_partial(*args, **kwargs)
 
@@ -47,6 +33,28 @@ def fetch_args_from_config(
 
     bind.apply_defaults()
 
+    return bind
+
+
+def fetch_args_from_config(
+    cfg: Mapping[str, Any], fn: Callable, *args, **kwargs: Mapping[str, Any]
+) -> Tuple[Tuple, Mapping[str, Any]]:
+    """Given a callable and a configuration dict, try and fetch argument values from
+    the config dict if needed.
+
+    Arguments:
+        fn: The function for which we want to fetch arguments from config.
+        args: The arguments the functino would be called with.
+        kwargs: The kwargs the function would be called with.
+        cfg: The config dictionary from which to tech default values if needed.
+
+    Returns:
+        args: The same args, except if an argument is `None`, it is replaced by the
+            corresponding value in `cfg`, if it exists there.
+        kwargs: The same kwargs, except if an argument value was `None`, it is replaced
+            by the value of the corresponding key in `cfg`."""
+    bind = fetch_bind_from_config(cfg, fn, *args, **kwargs)
+
     return bind.args, bind.kwargs
 
 
@@ -54,15 +62,19 @@ def init_wrapper(task_class: Type["AbstractTask"], fn):
     @functools.wraps(fn)
     def wrapped_init(self, *args, **kwargs):
         cfg = resolve_config_from_spec(task_class.CONFIG, task_class)
-        new_args, new_kwargs = fetch_args_from_config(cfg, fn, self, *args, **kwargs)
+
+        bind = fetch_bind_from_config(cfg, fn, self, *args, **kwargs)
 
         if hasattr(self, "AQ_HASH_EXCLUDE"):
-            new_kwargs = {
-                k: new_kwargs[k] for k in new_kwargs if k not in self.AQ_HASH_EXCLUDE
-            }
+            for arg in self.AQ_HASH_EXCLUDE:
+                if arg in bind.arguments:
+                    del bind.arguments[arg]
 
+        new_args, new_kwargs = bind.args, bind.kwargs
+
+        # Remove self from new_args
         self._args_hash = dask.base.tokenize(
-            self._fully_qualified_name(), *new_args, **new_kwargs
+            self._fully_qualified_name(), *new_args[1:], **new_kwargs
         )
         self._args = new_args
         self._kwargs = new_kwargs
