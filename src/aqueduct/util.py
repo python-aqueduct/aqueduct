@@ -78,7 +78,7 @@ def count_tasks_to_run(
 
     def handle_one_task(task: "AbstractTask", *args, **kwargs):
         if ignore_cache or not task.is_cached():
-            task_type = task.__class__.__qualname__
+            task_type = task.task_name()
             list_of_type = tasks_by_type.get(task_type, [])
             list_of_type.append(task)
             tasks_by_type[task_type] = list_of_type
@@ -148,8 +148,7 @@ def tasks_in_module(
     tasks = []
     for k in members:
         if inspect.isclass(members[k]) and issubclass(members[k], AbstractTask):
-            if inspect.getmodule(members[k]) == mod:
-                tasks.append(members[k])
+            tasks.append(members[k])
 
     return tasks
 

@@ -148,7 +148,7 @@ class Task(AbstractTask[_T]):
 
     _ALLOW_SAVE = True
 
-    def __call__(self, *args, backend_spec=None, **kwargs) -> Optional[_T]:
+    def __call__(self, *args, backend_spec=None, **kwargs) -> _T:
         """Prepare the context, execute the `run` method, and return its result.
 
         If an artifact is specified, save the result before returning. If an artifact is
@@ -168,7 +168,7 @@ class Task(AbstractTask[_T]):
             if (
                 artifact.exists()
                 and not force_run
-                and artifact.last_modified() > self._resolve_update_time()
+                and artifact.last_modified() >= self._resolve_update_time()
             ):
                 _logger.info(f"Loading result of {self} from {artifact}")
                 result = self.load(artifact)
@@ -182,8 +182,8 @@ class Task(AbstractTask[_T]):
 
         return result
 
-    def run(self, *args, **kwargs) -> Optional[_T]:
-        pass
+    def run(self, *args, **kwargs) -> _T:
+        raise NotImplementedError("Child Task does not implement `run`")
 
     def save(self, artifact: Artifact, object: _T):
         """Save `object` according to the specification of `artifact`.

@@ -167,6 +167,7 @@ class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
 
     @classmethod
     def _fully_qualified_name(cls) -> str:
+        """Full module path to the task."""
         module = inspect.getmodule(cls)
 
         if module is None:
@@ -185,7 +186,7 @@ class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
         # super().__init__().
         return "-".join(
             [
-                self.__class__.__qualname__,
+                self.task_name(),
                 self._args_hash,  # type: ignore
             ]
         )
@@ -208,7 +209,7 @@ class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
         return backend.execute(self)
 
     def __str__(self):
-        task_name = self.__class__.__qualname__
+        task_name = self.task_name()
         args_str = tuple([str(x) for x in self._args[1:]])
         return f"{task_name}(args={args_str}, kwargs={self._kwargs})"
 
@@ -217,6 +218,10 @@ class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
 
     def as_artifact(self):
         return ArtifactTaskWrapper(self)
+
+    def task_name(self) -> str:
+        """User friendly name that is used to identify the task in a graph."""
+        return self.__class__.__qualname__
 
 
 _Task = TypeVar("_Task", bound=AbstractTask)

@@ -291,8 +291,6 @@ def cli():
 
     ns = parser.parse_args()
 
-    print(ns)
-
     level = "DEBUG" if ns.verbose else "INFO"
     logging.basicConfig(level=level, stream=sys.stdout)
 

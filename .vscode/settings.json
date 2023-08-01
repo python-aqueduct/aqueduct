@@ -6,7 +6,25 @@
     "python.testing.pytestArgs": [
         "tests"
     ],
-    "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true,
-    "python.analysis.typeCheckingMode": "basic",
+    "sync-rsync.onSave": true,
+    "sync-rsync.delete": false,
+    "sync-rsync.sites": [
+        {
+            "name": "Jean Zay",
+            "remotePath": "jeanzay:~/repos/aqueduct/"
+        },
+        {
+            "name": "CLEPS",
+            "remotePath": "cleps:~/repos/aqueduct/"
+        }
+    ],
+    "sync-rsync.exclude": [
+        ".git",
+        ".vscode",
+        ".mypy_cache",
+        ".pytest_cache",
+        "__pycache__",
+        "*.egg-info/**"
+    ],
+    "python.analysis.typeCheckingMode": "basic"
 }

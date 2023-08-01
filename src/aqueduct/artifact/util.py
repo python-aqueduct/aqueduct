@@ -1,13 +1,15 @@
 import dataclasses
-from typing import MutableMapping, Type, TYPE_CHECKING
+from typing import MutableMapping, Type, TYPE_CHECKING, Sequence, List
 
 from .artifact import Artifact
 from .base import resolve_artifact_from_spec
 from .composite import CompositeArtifact
+from ..task_tree import _reduce_type_in_tree
 from ..util import resolve_task_tree
 
 if TYPE_CHECKING:
     from ..task import AbstractTask
+    from ..task_tree import TaskTree
 
 
 @dataclasses.dataclass
@@ -55,3 +57,34 @@ def artifact_report(
     resolve_task_tree(task, accumulate_artifacts, ignore_cache=True)
 
     return artifacts_by_type
+
+
+def head_artifacts(task_tree: "TaskTree") -> Sequence[Artifact]:
+    from ..task import AbstractTask
+
+    def reduce_head_artifact(t: AbstractTask, acc: List[Artifact]) -> List[Artifact]:
+        a = resolve_artifact_from_spec(t.artifact())
+
+        if a is None:
+            r = t._resolve_requirements()
+            return _reduce_type_in_tree(r, AbstractTask, reduce_head_artifact, acc)
+        else:
+            return [*acc, a]
+
+    head_artifacts = _reduce_type_in_tree(
+        task_tree, AbstractTask, reduce_head_artifact, []
+    )
+
+    def flatten_composite_artifacts(a: Artifact, acc: List[Artifact]) -> List[Artifact]:
+        if isinstance(a, CompositeArtifact):
+            reduced_inner = _reduce_type_in_tree(
+                a.artifacts, Artifact, flatten_composite_artifacts, acc  # type: ignore
+            )
+
+            return reduced_inner
+        else:
+            return [*acc, a]
+
+    return _reduce_type_in_tree(
+        head_artifacts, Artifact, flatten_composite_artifacts, []  # type: ignore
+    )

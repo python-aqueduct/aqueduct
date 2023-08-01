@@ -2,8 +2,7 @@ from typing import TypeVar, Any, TypedDict, Literal
 
 from .backend import Backend
 from ..task import AbstractTask
-from ..util import resolve_task_tree
-from ..task_tree import TaskTree
+from ..task_tree import TaskTree, _resolve_task_tree
 
 T = TypeVar("T")
 
@@ -27,7 +26,7 @@ class ImmediateBackend(Backend):
     parallelism, the :class:`DaskBackend` is probably more appropriate."""
 
     def execute(self, work: TaskTree) -> Any:
-        result = resolve_task_tree(work, execute_task)
+        result = _resolve_task_tree(work, execute_task)
         return result
 
     def _spec(self) -> str:
