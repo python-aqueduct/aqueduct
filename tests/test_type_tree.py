@@ -1,13 +1,13 @@
 import unittest
 
-from aqueduct.task_tree import _map_type_in_tree, _reduce_type_in_tree
+from aqueduct.task_tree import _map_type_in_tree, reduce_type_in_tree
 
 
 class TestTypeTree(unittest.TestCase):
     def test_acc(self):
         tree = [1, 2, {"a": 3}]
 
-        result = _reduce_type_in_tree(tree, int, int.__add__, 0)
+        result = reduce_type_in_tree(tree, int, int.__add__, 0)
         self.assertEqual(result, 6)
 
     def test_map(self):

@@ -31,7 +31,7 @@ TypeTree: TypeAlias = (
 TaskTree: TypeAlias = TypeTree["AbstractTask"]
 
 
-def _reduce_type_in_tree(
+def reduce_type_in_tree(
     tree: TypeTree[_T],
     type: Type[_T],
     reduce_fn: Callable[[_T, _A], _A],
@@ -39,11 +39,11 @@ def _reduce_type_in_tree(
 ) -> _A:
     if isinstance(tree, (list, tuple)):
         for x in tree:
-            acc = _reduce_type_in_tree(x, type, reduce_fn, acc)
+            acc = reduce_type_in_tree(x, type, reduce_fn, acc)
         return acc
     elif isinstance(tree, dict):
         for v in tree.values():
-            acc = _reduce_type_in_tree(v, type, reduce_fn, acc)
+            acc = reduce_type_in_tree(v, type, reduce_fn, acc)
         return acc
     elif isinstance(tree, type):
         return reduce_fn(tree, acc)
@@ -60,7 +60,7 @@ def gather_tasks_in_tree(tree: TypeTree["AbstractTask"]) -> list["AbstractTask"]
         acc.append(lhs)
         return acc
 
-    return _reduce_type_in_tree(tree, AbstractTask, reduce_fn, [])
+    return reduce_type_in_tree(tree, AbstractTask, reduce_fn, [])
 
 
 OneExpandCallback: TypeAlias = Callable[[list | tuple | dict], None]

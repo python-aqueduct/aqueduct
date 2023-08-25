@@ -1,21 +1,17 @@
 import importlib
 import math
 import inspect
-import tqdm
 from typing import (
     Any,
     Callable,
     Optional,
-    Mapping,
     Sequence,
     TypeVar,
-    TypeAlias,
-    Union,
     Type,
     TYPE_CHECKING,
 )
 
-from .task_tree import TypeTree, TaskTree, _map_tasks_in_tree
+from .task_tree import TypeTree, _map_tasks_in_tree, _resolve_task_tree
 
 if TYPE_CHECKING:
     from .task import AbstractTask
@@ -85,7 +81,7 @@ def count_tasks_to_run(
 
         return task
 
-    resolve_task_tree(task, handle_one_task, ignore_cache=ignore_cache)
+    _resolve_task_tree(task, handle_one_task, ignore_cache=ignore_cache)
 
     if remove_duplicates:
         counts = {
@@ -106,35 +102,6 @@ def task_to_result(task: "AbstractTask[_T]") -> _T:
     else:
         mapped_requirements = _map_tasks_in_tree(requirements, task_to_result)
         return task(mapped_requirements)
-
-
-def resolve_task_tree(
-    work: TaskTree,
-    fn: Callable,
-    ignore_cache=False,
-    on_expand=None,
-) -> Any:
-    """Apply function fn on all Task objects encountered while resolving the
-    dependencies of `task`. If a Task has a cached value, do not expand its
-    requirements, and map it immediately. Otherwise, map the task and provide its
-    requirements are arguments."""
-
-    def mapper(task: "AbstractTask") -> Any:
-        requirements = task._resolve_requirements(ignore_cache=ignore_cache)
-
-        if requirements is None:
-            to_return = fn(task)
-        else:
-            mapped_requirements = _map_tasks_in_tree(
-                requirements,
-                mapper,
-                on_expand=on_expand,
-            )
-            to_return = fn(task, mapped_requirements)
-
-        return to_return
-
-    return _map_tasks_in_tree(work, mapper)
 
 
 def tasks_in_module(

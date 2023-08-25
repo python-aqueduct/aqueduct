@@ -2,7 +2,7 @@
     "[python]": {
         "editor.defaultFormatter": "ms-python.black-formatter"
     },
-    "python.formatting.provider": "none",
+    "python.formatting.provider": "black",
     "python.testing.pytestArgs": [
         "tests"
     ],
@@ -26,5 +26,7 @@
         "__pycache__",
         "*.egg-info/**"
     ],
-    "python.analysis.typeCheckingMode": "off"
+    "python.analysis.typeCheckingMode": "off",
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
 }

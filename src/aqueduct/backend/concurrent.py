@@ -4,8 +4,8 @@ from typing import Optional, TypeVar, Any, Literal, TypedDict
 import cloudpickle
 
 from ..task import AbstractTask
-from ..util import TypeTree, resolve_task_tree
-from ..task_tree import _map_type_in_tree
+from ..util import TypeTree
+from ..task_tree import _map_type_in_tree, _resolve_task_tree
 from .backend import Backend
 
 T = TypeVar("T")
@@ -48,7 +48,7 @@ def task_to_future_resolve(task: AbstractTask[T], executor: Executor) -> Future[
         else:
             return executor.submit(undill_and_run, cloudpickle.dumps(task))
 
-    return resolve_task_tree(task, map_task_to_future)
+    return _resolve_task_tree(task, map_task_to_future)
 
 
 class ConcurrentBackend(Backend):

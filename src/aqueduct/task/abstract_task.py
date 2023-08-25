@@ -18,7 +18,7 @@ import logging
 from ..artifact import Artifact, ArtifactSpec, resolve_artifact_from_spec
 from ..config import AqueductConfig, ConfigSpec, resolve_config_from_spec
 from .autoresolve import WrapInitMeta
-from ..task_tree import _reduce_type_in_tree
+from ..task_tree import reduce_type_in_tree
 
 
 if TYPE_CHECKING:
@@ -123,7 +123,7 @@ class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
         # def reduce_fn(task: AbstractTask, acc: datetime.datetime):
         #     requirements = task.requirements()
         #     if requirements is not None:
-        #         time_of_reqs = _reduce_type_in_tree(
+        #         time_of_reqs = reduce_type_in_tree(
         #             requirements, AbstractTask, reduce_fn, acc
         #         )
         #     else:
@@ -133,7 +133,7 @@ class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
 
         #     return max(time_of_reqs, own_time)
 
-        # update_time = _reduce_type_in_tree(
+        # update_time = reduce_type_in_tree(
         #     self, AbstractTask, reduce_fn, datetime.datetime.fromtimestamp(0)
         # )
 

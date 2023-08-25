@@ -7,6 +7,11 @@ from .backend import Backend
 from .immediate import ImmediateBackend, ImmediateBackendDictSpec
 from .concurrent import ConcurrentBackend, ConcurrentBackendDictSpec
 from .dask import DaskBackend, DaskBackendDictSpec, resolve_dask_dict_backend_spec
+from .dask_graph import (
+    DaskGraphBackend,
+    DaskGraphBackendDictSpec,
+    resolve_dask_graph_backend_dict_spec,
+)
 
 from ..config import get_aqueduct_config
 
@@ -15,15 +20,22 @@ NAMES_OF_BACKENDS = {
     "immediate": ImmediateBackend,
     "concurrent": ConcurrentBackend,
     "dask": DaskBackend,
+    "dask_graph": DaskGraphBackend,
 }
 
 
 BackendDictSpec: TypeAlias = (
-    DaskBackendDictSpec | ConcurrentBackendDictSpec | ImmediateBackendDictSpec
+    DaskBackendDictSpec
+    | ConcurrentBackendDictSpec
+    | ImmediateBackendDictSpec
+    | DaskGraphBackendDictSpec
 )
 
 BackendSpec: TypeAlias = (
-    Literal["immediate", "concurrent", "dask"] | Backend | BackendDictSpec | None
+    Literal["immediate", "concurrent", "dask", "dask_graph"]
+    | Backend
+    | BackendDictSpec
+    | None
 )
 
 
@@ -49,6 +61,8 @@ def resolve_backend_from_spec(spec: BackendSpec) -> Backend:
 def resolve_dict_backend_spec(spec: BackendDictSpec) -> Backend:
     if spec["type"] == "dask":
         return resolve_dask_dict_backend_spec(spec)
+    elif spec["type"] == "dask_graph":
+        return resolve_dask_graph_backend_dict_spec(spec)
     elif spec["type"] == "concurrent":
         return ConcurrentBackend(n_workers=spec["n_workers"])
     elif spec["type"] == "immediate":
