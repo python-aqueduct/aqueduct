@@ -26,5 +26,5 @@
         "__pycache__",
         "*.egg-info/**"
     ],
-    "python.analysis.typeCheckingMode": "basic"
+    "python.analysis.typeCheckingMode": "off"
 }

@@ -73,5 +73,5 @@ class RepeaterTask(Task, Generic[_Task]):
         else:
             return None
 
-    def run(self, *args, **kwargs):
-        pass
+    def run(self, reqs):
+        return reqs

@@ -183,7 +183,7 @@ class Task(AbstractTask[_T]):
         return result
 
     def run(self, *args, **kwargs) -> _T:
-        raise NotImplementedError("Child Task does not implement `run`")
+        pass
 
     def save(self, artifact: Artifact, object: _T):
         """Save `object` according to the specification of `artifact`.

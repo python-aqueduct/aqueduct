@@ -94,6 +94,14 @@ def run(ns: argparse.Namespace):
     )
     cfg = resolve_config(config_sources)
 
+    if ns.concurrent is not None:
+        cfg["aqueduct"]["backend"]["type"] = "concurrent"
+        cfg["aqueduct"]["backend"]["n_workers"] = ns.concurrent
+
+    if ns.dask is not None:
+        cfg["aqueduct"]["backend"]["type"] = "dask"
+        cfg["aqueduct"]["backend"]["address"] = ns.dask
+
     if ns.cfg:
         print(omegaconf.OmegaConf.to_yaml(cfg, resolve=ns.resolve))
         return
@@ -236,6 +244,10 @@ def cli():
     run_parser.add_argument(
         "--resolve", action="store_true", help="Resolve the config before printing."
     )
+
+    backend_group = run_parser.add_mutually_exclusive_group()
+    backend_group.add_argument("--concurrent", type=int, default=None)
+    backend_group.add_argument("--dask", type=str, default=None)
 
     run_parser_diagnostics_group = run_parser.add_mutually_exclusive_group()
     run_parser_diagnostics_group.add_argument(
