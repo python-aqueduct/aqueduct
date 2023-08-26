@@ -1,4 +1,4 @@
-from typing import TypeAlias, Any, TypedDict, Optional, TYPE_CHECKING
+from typing import TypeAlias, Any, TypedDict, Optional, TYPE_CHECKING, Callable
 
 import asyncio
 import base64
@@ -17,6 +17,7 @@ import tqdm
 from ..artifact import (
     TextStreamArtifactSpec,
     TextStreamArtifact,
+    StreamArtifact,
     LocalStoreArtifact,
     LocalFilesystemArtifact,
     resolve_artifact_from_spec,
@@ -72,7 +73,7 @@ EXTENSION_OF_EXPORTER_NAME = {
 
 def resolve_notebook_export_spec(
     spec: NotebookExportSpec,
-) -> tuple[TextStreamArtifact, nbconvert.Exporter]:
+) -> Callable[[nbformat.NotebookNode], None]:
     if isinstance(spec, (str, pathlib.Path)):
         path = pathlib.Path(spec)
 
@@ -80,6 +81,8 @@ def resolve_notebook_export_spec(
 
         artifact = LocalStoreArtifact(spec)
         exporter_class = nbconvert.get_exporter(exporter_name)
+        exporter = exporter_class()
+
     elif isinstance(spec, LocalFilesystemArtifact):
         suffix = spec.path.suffix
         exporter_name = EXTENSION_OF_EXPORTER_NAME.get(suffix, "notebook")
@@ -92,8 +95,24 @@ def resolve_notebook_export_spec(
     elif isinstance(spec, (dict, TypedDict)):
         artifact = resolve_artifact_from_spec(spec["artifact"])
         exporter_class = nbconvert.get_exporter(spec["format"])
+    else:
+        raise RuntimeError("Could not resolve notebook export specification.")
 
-    return artifact, exporter_class()
+    def export_fn(notebook):
+        exporter = exporter_class()
+        exported, _ = exporter.from_notebook_node(notebook)
+
+        if exporter_name == "pdf":
+            if not isinstance(artifact, StreamArtifact):
+                raise ValueError(
+                    "Trying to export notebook to PDF but artifact does not support binary streams."
+                )
+            else:
+                artifact.dump(exported)
+        else:
+            artifact.dump_text(exported)
+
+    return export_fn
 
 
 class NotebookTask(AbstractTask):
@@ -108,15 +127,6 @@ class NotebookTask(AbstractTask):
 
     def export(self) -> Optional[NotebookExportSpec]:
         return None
-
-    def artifact(self) -> Optional[Artifact]:
-        export_spec = self.export()
-
-        if export_spec is not None:
-            artifact, _ = resolve_notebook_export_spec(export_spec)
-            return artifact
-        else:
-            return None
 
     def add_to_sys(self) -> list[str]:
         return []
@@ -166,8 +176,8 @@ class NotebookTask(AbstractTask):
         finally:
             export_spec = self.export()
             if export_spec is not None:
-                artifact, exporter = resolve_notebook_export_spec(export_spec)
-                export_notebook(artifact, exporter, notebook_source)
+                export_fn = resolve_notebook_export_spec(export_spec)
+                export_fn(notebook_source)
 
         sinked_value = self._fetch_sinked_value(kernel_client)
 

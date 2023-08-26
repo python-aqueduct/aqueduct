@@ -14,6 +14,10 @@ def write_str(o: str, stream: TextIO):
     stream.write(o)
 
 
+def write_bin(o, stream: BinaryIO):
+    stream.write(o)
+
+
 def read_str(stream: TextIO) -> str:
     return stream.read()
 
@@ -40,7 +44,7 @@ class LocalFilesystemArtifact(TextStreamArtifact, StreamArtifact):
         with self.path.open("rb") as f:
             return reader(f)
 
-    def dump(self, object: _T, writer: Callable[[_T, BinaryIO], None]):
+    def dump(self, object: _T, writer: Callable[[_T, BinaryIO], None] = write_bin):
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open("wb") as f:
             writer(object, f)
