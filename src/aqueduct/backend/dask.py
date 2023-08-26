@@ -14,6 +14,8 @@ import omegaconf as oc
 from dask.optimization import fuse, inline_functions
 from dask.distributed import Client, LocalCluster
 
+import aqueduct.backend.backend
+
 from ..config import set_config, get_config
 from .backend import Backend
 from ..task import AbstractTask
@@ -58,20 +60,23 @@ class DaskBackend(Backend):
         return self.client.scheduler_info()["address"]
 
     def _spec(self) -> DaskBackendDictSpec:
-        if isinstance(self.client, LocalCluster):
-            return {
-                "type": "dask_graph",
-                "n_workers": len(self.client.scheduler_info["workers"]),
-            }
-        else:
-            scheduler_address = cast(str, self._scheduler_address())
-            return {"type": "dask_graph", "address": scheduler_address}
+        scheduler_address = cast(str, self._scheduler_address())
+        return {"type": "dask", "address": scheduler_address}
 
     def __str__(self):
         return f"DaskBackend"
 
 
-def wrap_task(cfg: oc.DictConfig, task: AbstractTask, *args, **kwargs):
+def wrap_task(
+    backend_spec: DaskBackendDictSpec,
+    cfg: oc.DictConfig,
+    task: AbstractTask,
+    *args,
+    **kwargs,
+):
+    aqueduct.backend.backend.AQ_CURRENT_BACKEND = resolve_dask_backend_dict_spec(
+        backend_spec
+    )
     set_config(cfg)
     return task(*args, **kwargs)
 
@@ -85,9 +90,9 @@ def resolve_dask_backend_dict_spec(
 
 def resolve_client_from_dict_spec(spec: DaskBackendDictSpec):
     match spec:
-        case {"address": str(address)}:
+        case {"type": "dask", "address": str(address)}:
             return Client(address)
-        case {"n_workers": int(n_workers)}:
+        case {"type": "dask", "n_workers": int(n_workers)}:
             return Client(LocalCluster(n_workers=n_workers))
         case _:
             raise ValueError("Could not parse Dask backend specification.")
@@ -106,12 +111,23 @@ def add_task_to_dask_graph(
     current_cfg = get_config()
 
     if requirements is None:
-        graph[task_key] = (wrap_task, current_cfg, task)
+        graph[task_key] = (
+            wrap_task,
+            aqueduct.backend.backend.AQ_CURRENT_BACKEND._spec(),
+            current_cfg,
+            task,
+        )
     else:
         computation, graph = add_work_to_dask_graph(
             requirements, graph, ignore_cache=ignore_cache
         )
-        graph[task_key] = (wrap_task, current_cfg, task, computation)
+        graph[task_key] = (
+            wrap_task,
+            aqueduct.backend.backend.AQ_CURRENT_BACKEND._spec(),
+            current_cfg,
+            task,
+            computation,
+        )
 
     return task_key, graph
 

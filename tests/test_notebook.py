@@ -63,9 +63,9 @@ class TestNotebookIntegration(unittest.TestCase):
 
         backend._spec()
         t = BackendNotebookTask()
-        # inner_backend = t.result(backend=backend)
+        inner_backend = backend.run(t)
 
-        # self.assertDictEqual(backend._spec(), inner_backend)
+        self.assertDictEqual(backend._spec(), inner_backend)
 
     def test_sink(self):
         input_dict = {"test_return_value": 1}

@@ -26,6 +26,8 @@ from .abstract_task import AbstractTask
 from ..config import get_config
 from ..task_tree import TaskTree
 
+import aqueduct.backend.backend
+
 if TYPE_CHECKING:
     from ..backend import BackendSpec
 
@@ -141,7 +143,7 @@ class NotebookTask(AbstractTask):
         else:
             return super()._resolve_requirements(ignore_cache=ignore_cache)
 
-    def __call__(self, requirements=None, backend_spec: "Optional[BackendSpec]" = None):
+    def __call__(self, requirements=None):
         notebook_path = self._resolve_notebook()
 
         with open(notebook_path) as f:
@@ -159,9 +161,7 @@ class NotebookTask(AbstractTask):
         else:
             injected_requirements = None
 
-        self._prepare_kernel_with_injected_code(
-            kernel_client, injected_requirements, backend_spec=backend_spec
-        )
+        self._prepare_kernel_with_injected_code(kernel_client, injected_requirements)
 
         try:
             _logger.info("Executing notebook...")
@@ -186,9 +186,7 @@ class NotebookTask(AbstractTask):
 
         return sinked_value
 
-    def _prepare_kernel_with_injected_code(
-        self, kernel_client, requirements, backend_spec=None
-    ):
+    def _prepare_kernel_with_injected_code(self, kernel_client, requirements):
         add_sys_string = str([str(x) for x in self.add_to_sys()])
 
         _logger.info("Serializing task...")
@@ -201,7 +199,12 @@ class NotebookTask(AbstractTask):
         config_load_program = object_to_payload_program(cfg)
 
         _logger.info("Serializing backend...")
-        backend_load_program = object_to_payload_program(backend_spec)
+        if aqueduct.backend.backend.AQ_CURRENT_BACKEND is None:
+            raise RuntimeError("Inside task but not backend is defined.")
+
+        backend_load_program = object_to_payload_program(
+            aqueduct.backend.backend.AQ_CURRENT_BACKEND._spec()
+        )
 
         injected_code = ";\n".join(
             [
