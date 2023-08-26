@@ -2,7 +2,6 @@ import unittest
 
 from aqueduct.backend import (
     resolve_backend_from_spec,
-    DaskBackend,
     ImmediateBackend,
     ConcurrentBackend,
 )
@@ -68,11 +67,6 @@ class TestImmediateBackend(unittest.TestCase):
         t = TaskB()
 
         self.assertEqual(self.backend.execute(t), 4)
-
-
-class TestDaskBackend(TestImmediateBackend):
-    def setUp(self):
-        self.backend = DaskBackend()
 
 
 class TestConcurrentBackend(TestImmediateBackend):

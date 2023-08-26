@@ -1,4 +1,4 @@
-from typing import TypeAlias, Optional, cast, TypedDict, Literal
+from typing import TypeAlias, cast, Literal, Mapping
 
 import collections.abc
 import hydra
@@ -6,12 +6,7 @@ import hydra
 from .backend import Backend
 from .immediate import ImmediateBackend, ImmediateBackendDictSpec
 from .concurrent import ConcurrentBackend, ConcurrentBackendDictSpec
-from .dask import DaskBackend, DaskBackendDictSpec, resolve_dask_dict_backend_spec
-from .dask_graph import (
-    DaskGraphBackend,
-    DaskGraphBackendDictSpec,
-    resolve_dask_graph_backend_dict_spec,
-)
+from .dask import DaskBackend, DaskBackendDictSpec, resolve_dask_backend_dict_spec
 
 from ..config import get_aqueduct_config
 
@@ -20,16 +15,10 @@ NAMES_OF_BACKENDS = {
     "immediate": ImmediateBackend,
     "concurrent": ConcurrentBackend,
     "dask": DaskBackend,
-    "dask_graph": DaskGraphBackend,
 }
 
 
-BackendDictSpec: TypeAlias = (
-    DaskBackendDictSpec
-    | ConcurrentBackendDictSpec
-    | ImmediateBackendDictSpec
-    | DaskGraphBackendDictSpec
-)
+BackendDictSpec: TypeAlias = Mapping[str, int | str]
 
 BackendSpec: TypeAlias = (
     Literal["immediate", "concurrent", "dask", "dask_graph"]
@@ -60,11 +49,9 @@ def resolve_backend_from_spec(spec: BackendSpec) -> Backend:
 
 def resolve_dict_backend_spec(spec: BackendDictSpec) -> Backend:
     if spec["type"] == "dask":
-        return resolve_dask_dict_backend_spec(spec)
-    elif spec["type"] == "dask_graph":
-        return resolve_dask_graph_backend_dict_spec(spec)
+        return resolve_dask_backend_dict_spec(spec)
     elif spec["type"] == "concurrent":
-        return ConcurrentBackend(n_workers=spec["n_workers"])
+        return ConcurrentBackend(n_workers=int(spec["n_workers"]))
     elif spec["type"] == "immediate":
         return ImmediateBackend()
     else:
