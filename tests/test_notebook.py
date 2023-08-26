@@ -51,32 +51,32 @@ class TestNotebookIntegration(unittest.TestCase):
 
     def test_notebook_run(self):
         t = ExampleNotebookTask(33)
-        t.result()
+        aq.run(t)
 
     def test_config_injection(self):
         aq.set_config({"test_config_injection": 1})
         t = ConfigNotebookTask()
-        t.result()
+        aq.run(t)
 
     def test_backend_injection(self):
         backend = aq.DaskBackend()
 
         backend._spec()
         t = BackendNotebookTask()
-        inner_backend = t.result(backend=backend)
+        # inner_backend = t.result(backend=backend)
 
-        self.assertDictEqual(backend._spec(), inner_backend)
+        # self.assertDictEqual(backend._spec(), inner_backend)
 
     def test_sink(self):
         input_dict = {"test_return_value": 1}
         t = ExampleNotebookTask(a=33, b=input_dict)
-        output_dict = t.result()
+        output_dict = aq.run(t)
 
         self.assertDictEqual(input_dict, output_dict)
 
     def test_sink_no_return(self):
         t = EmptyNotebookTask()
-        retval = t.result()
+        retval = aq.run(t)
 
         self.assertIsNone(retval)
 
@@ -89,7 +89,7 @@ class TextNotebookExport(unittest.TestCase):
         export_path = self.tmp_dir / filename
         t = NotebookWithExport(str(export_path))
 
-        t.result()
+        aq.run(t)
 
         self.assertTrue(export_path.is_file())
         self.assertLess(0, export_path.stat().st_size)

@@ -42,7 +42,7 @@ class DaskBackend(Backend):
         else:
             self.client = client
 
-    def execute(self, task: TaskTree):
+    def _run(self, task: TaskTree):
         _logger.info("Computing Dask graph...")
         computation, graph = add_work_to_dask_graph(task, {}, ignore_cache=False)
         _logger.info(f"Dask Graph has {len(graph)} unique tasks.")

@@ -20,7 +20,7 @@ class TestQuickTask(unittest.TestCase):
 
     def test_auto_cache(self):
         t = StoringTask(self.store)
-        result = t.result()
+        result = aq.run(t)
 
         self.assertIn("test", self.store)
         self.assertDictEqual(self.store["test"], result)

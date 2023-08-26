@@ -55,7 +55,7 @@ class ConcurrentBackend(Backend):
     def __init__(self, n_workers=1):
         self.n_workers = n_workers
 
-    def execute(self, task: AbstractTask[T]) -> T:
+    def _run(self, task: AbstractTask[T]) -> T:
         with ProcessPoolExecutor(max_workers=self.n_workers) as executor:
             future = task_to_future_resolve(task, executor)
 

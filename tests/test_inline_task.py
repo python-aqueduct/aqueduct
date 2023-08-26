@@ -26,6 +26,6 @@ class TestInlineTask(unittest.TestCase):
     def test_result_correct(self):
         inline_b = aq.inline(TaskB())
 
-        result = inline_b.result()
+        result = aq.run(inline_b)
 
         self.assertEqual(2, result)

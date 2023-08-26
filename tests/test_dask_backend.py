@@ -50,7 +50,7 @@ class TestDaskBackend(unittest.TestCase):
     def test_simple_task(self):
         backend = DaskBackend()
 
-        out = backend.execute(TaskB(2))
+        out = backend.run(TaskB(2))
 
         self.assertEqual(out, 4)
 
@@ -58,6 +58,6 @@ class TestDaskBackend(unittest.TestCase):
         backend = DaskBackend()
 
         work = TaskA()
-        out = backend.execute(work)
+        out = backend.run(work)
 
         self.assertEqual(out, 19)
