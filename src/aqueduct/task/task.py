@@ -27,8 +27,9 @@ def write_to_parquet(df: pd.DataFrame, path: str):
     df.to_parquet(path)
 
 
-def write_to_netcdf(array: xr.Dataset, path: str):
+def write_to_netcdf(array: xr.Dataset | xr.DataArray, path: str):
     array.to_netcdf(path)
+    array.close()
 
 
 READER_OF_TYPE = {

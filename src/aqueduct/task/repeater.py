@@ -5,6 +5,7 @@ import itertools
 from .abstract_task import AbstractTask, ArtifactTaskWrapper
 from ..artifact import CompositeArtifact, resolve_artifact_from_spec
 from .task import Task
+from .extract_artifact import as_artifact
 from .inline import inline, InlineTaskWrapper
 
 
@@ -52,7 +53,7 @@ class RepeaterTask(Task, Generic[_Task]):
             requirements.append(self.repeated(*self.args, **generated_args))
 
         if self._reqs_as_artifacts:
-            requirements = [r.as_artifact() for r in requirements]
+            requirements = [as_artifact(r) for r in requirements]
 
         if self._inline:
             requirements = [inline(r) for r in requirements]

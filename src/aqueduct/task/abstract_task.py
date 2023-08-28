@@ -216,9 +216,6 @@ class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
     def set_force_root(self, value=True):
         self._aq_force_root = value
 
-    def as_artifact(self):
-        return ArtifactTaskWrapper(self)
-
     def task_name(self) -> str:
         """User friendly name that is used to identify the task in a graph."""
         return self.__class__.__qualname__

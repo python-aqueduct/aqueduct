@@ -14,7 +14,7 @@ import logging
 import omegaconf as oc
 
 from dask.optimization import fuse, inline_functions
-from dask.distributed import Client, LocalCluster
+from dask.distributed import Client, LocalCluster, fire_and_forget
 import dask.utils
 
 from ..config import set_config, get_config
@@ -60,7 +60,11 @@ class DaskGraphBackend(Backend):
         optimized = inline_functions(optimized, computation, [tuple])
         _logger.info(f"Optimized graph has {len(optimized)} tasks.")
 
-        return self.client.get(optimized, computation)
+        future = self.client.get(optimized, computation, sync=False)
+
+        fire_and_forget(future)
+
+        return self.client.gather(future, errors="raise")
 
     def _scheduler_address(self):
         return self.client.scheduler_info()["address"]
