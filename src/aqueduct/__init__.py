@@ -6,6 +6,7 @@ from .artifact import (
 )
 from .artifact.util import artifact_report
 from .backend import ImmediateBackend, ConcurrentBackend, DaskBackend
+from .base import run
 from .config import set_config, get_config
 from .task import (
     IOTask,
@@ -39,6 +40,7 @@ __all__ = [
     "notebook",
     "NotebookTask",
     "RepeaterTask",
+    "run",
     "set_config",
     "Task",
     "tasks_in_module",

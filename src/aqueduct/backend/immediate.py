@@ -25,7 +25,7 @@ class ImmediateBackend(Backend):
     No parallelism is involved. Useful for debugging purposes. For any form of
     parallelism, the :class:`DaskBackend` is probably more appropriate."""
 
-    def execute(self, work: TaskTree) -> Any:
+    def _run(self, work: TaskTree) -> Any:
         result = _resolve_task_tree(work, execute_task)
         return result
 

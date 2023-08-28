@@ -10,6 +10,7 @@ dependencies = [
     "dask",
     "distributed",
     "hydra-core",
+    "ipykernel",
     "omegaconf",
     "nbformat",
     "nbconvert",

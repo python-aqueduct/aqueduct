@@ -1,7 +1,7 @@
 import unittest
 
 from aqueduct.task import Task
-from aqueduct.backend.dask_graph import add_work_to_dask_graph, DaskGraphBackend
+from aqueduct.backend.dask import add_work_to_dask_graph, DaskBackend
 
 
 class TaskB(Task):
@@ -20,7 +20,7 @@ class TaskA(Task):
         return sum(reqs) + 2
 
 
-class TestDaskGraphBackend(unittest.TestCase):
+class TestDaskBackend(unittest.TestCase):
     def test_add_task(self):
         work = TaskB(2)
         computation, graph = add_work_to_dask_graph(work, {})
@@ -48,16 +48,16 @@ class TestDaskGraphBackend(unittest.TestCase):
         self.assertEqual(len(graph), 3)
 
     def test_simple_task(self):
-        backend = DaskGraphBackend()
+        backend = DaskBackend()
 
-        out = backend.execute(TaskB(2))
+        out = backend.run(TaskB(2))
 
         self.assertEqual(out, 4)
 
     def test_task_with_deps(self):
-        backend = DaskGraphBackend()
+        backend = DaskBackend()
 
         work = TaskA()
-        out = backend.execute(work)
+        out = backend.run(work)
 
         self.assertEqual(out, 19)

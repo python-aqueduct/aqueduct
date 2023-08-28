@@ -127,7 +127,7 @@ def run(ns: argparse.Namespace):
     if ns.force_root:
         task.set_force_root(True)
 
-    result = backend.execute(task)
+    result = backend.run(task)
 
     if ns.ipython:
         import IPython

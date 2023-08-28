@@ -1,4 +1,4 @@
-from typing import TypeAlias, Any, TypedDict, Optional, TYPE_CHECKING
+from typing import TypeAlias, Any, TypedDict, Optional, TYPE_CHECKING, Callable
 
 import asyncio
 import base64
@@ -17,6 +17,7 @@ import tqdm
 from ..artifact import (
     TextStreamArtifactSpec,
     TextStreamArtifact,
+    StreamArtifact,
     LocalStoreArtifact,
     LocalFilesystemArtifact,
     resolve_artifact_from_spec,
@@ -24,6 +25,8 @@ from ..artifact import (
 from .abstract_task import AbstractTask
 from ..config import get_config
 from ..task_tree import TaskTree
+
+import aqueduct.backend.backend
 
 if TYPE_CHECKING:
     from ..backend import BackendSpec
@@ -72,7 +75,7 @@ EXTENSION_OF_EXPORTER_NAME = {
 
 def resolve_notebook_export_spec(
     spec: NotebookExportSpec,
-) -> tuple[TextStreamArtifact, nbconvert.Exporter]:
+) -> Callable[[nbformat.NotebookNode], None]:
     if isinstance(spec, (str, pathlib.Path)):
         path = pathlib.Path(spec)
 
@@ -80,6 +83,8 @@ def resolve_notebook_export_spec(
 
         artifact = LocalStoreArtifact(spec)
         exporter_class = nbconvert.get_exporter(exporter_name)
+        exporter = exporter_class()
+
     elif isinstance(spec, LocalFilesystemArtifact):
         suffix = spec.path.suffix
         exporter_name = EXTENSION_OF_EXPORTER_NAME.get(suffix, "notebook")
@@ -92,8 +97,24 @@ def resolve_notebook_export_spec(
     elif isinstance(spec, (dict, TypedDict)):
         artifact = resolve_artifact_from_spec(spec["artifact"])
         exporter_class = nbconvert.get_exporter(spec["format"])
+    else:
+        raise RuntimeError("Could not resolve notebook export specification.")
 
-    return artifact, exporter_class()
+    def export_fn(notebook):
+        exporter = exporter_class()
+        exported, _ = exporter.from_notebook_node(notebook)
+
+        if exporter_name == "pdf":
+            if not isinstance(artifact, StreamArtifact):
+                raise ValueError(
+                    "Trying to export notebook to PDF but artifact does not support binary streams."
+                )
+            else:
+                artifact.dump(exported)
+        else:
+            artifact.dump_text(exported)
+
+    return export_fn
 
 
 class NotebookTask(AbstractTask):
@@ -109,15 +130,6 @@ class NotebookTask(AbstractTask):
     def export(self) -> Optional[NotebookExportSpec]:
         return None
 
-    def artifact(self) -> Optional[Artifact]:
-        export_spec = self.export()
-
-        if export_spec is not None:
-            artifact, _ = resolve_notebook_export_spec(export_spec)
-            return artifact
-        else:
-            return None
-
     def add_to_sys(self) -> list[str]:
         return []
 
@@ -131,7 +143,7 @@ class NotebookTask(AbstractTask):
         else:
             return super()._resolve_requirements(ignore_cache=ignore_cache)
 
-    def __call__(self, requirements=None, backend_spec: "Optional[BackendSpec]" = None):
+    def __call__(self, requirements=None):
         notebook_path = self._resolve_notebook()
 
         with open(notebook_path) as f:
@@ -149,9 +161,7 @@ class NotebookTask(AbstractTask):
         else:
             injected_requirements = None
 
-        self._prepare_kernel_with_injected_code(
-            kernel_client, injected_requirements, backend_spec=backend_spec
-        )
+        self._prepare_kernel_with_injected_code(kernel_client, injected_requirements)
 
         try:
             _logger.info("Executing notebook...")
@@ -166,8 +176,8 @@ class NotebookTask(AbstractTask):
         finally:
             export_spec = self.export()
             if export_spec is not None:
-                artifact, exporter = resolve_notebook_export_spec(export_spec)
-                export_notebook(artifact, exporter, notebook_source)
+                export_fn = resolve_notebook_export_spec(export_spec)
+                export_fn(notebook_source)
 
         sinked_value = self._fetch_sinked_value(kernel_client)
 
@@ -176,9 +186,7 @@ class NotebookTask(AbstractTask):
 
         return sinked_value
 
-    def _prepare_kernel_with_injected_code(
-        self, kernel_client, requirements, backend_spec=None
-    ):
+    def _prepare_kernel_with_injected_code(self, kernel_client, requirements):
         add_sys_string = str([str(x) for x in self.add_to_sys()])
 
         _logger.info("Serializing task...")
@@ -191,7 +199,12 @@ class NotebookTask(AbstractTask):
         config_load_program = object_to_payload_program(cfg)
 
         _logger.info("Serializing backend...")
-        backend_load_program = object_to_payload_program(backend_spec)
+        if aqueduct.backend.backend.AQ_CURRENT_BACKEND is None:
+            raise RuntimeError("Inside task but not backend is defined.")
+
+        backend_load_program = object_to_payload_program(
+            aqueduct.backend.backend.AQ_CURRENT_BACKEND._spec()
+        )
 
         injected_code = ";\n".join(
             [

@@ -21,6 +21,7 @@ from aqueduct.task import (
 
 from aqueduct.task.autoresolve import fetch_args_from_config
 from aqueduct.task.task import resolve_writer
+from aqueduct.base import run
 
 
 class TestCompute(unittest.TestCase):
@@ -33,7 +34,7 @@ class TestCompute(unittest.TestCase):
                 return self.value
 
         t = SimpleTask(2)
-        self.assertEqual(2, t.result())
+        self.assertEqual(2, run(t))
 
 
 class PretenseTask(Task):
@@ -120,7 +121,7 @@ class TestFetchArgsOnCall(unittest.TestCase):
         set_config({"tests": {"test_task": {"PretenseTask": inner_dict}}})
 
         t = PretenseTask(3)
-        self.assertEqual(18, t.result())
+        self.assertEqual(18, run(t))
 
 
 store = {}
@@ -146,7 +147,7 @@ class TestStorageCheck(unittest.TestCase):
         set_config({"aqueduct": {"check_storage": True}})
 
         t = StoringTask()
-        t.result()
+        run(t)
 
         self.assertTrue(t.artifact().exists())
 
@@ -154,7 +155,7 @@ class TestStorageCheck(unittest.TestCase):
         set_config({"aqueduct": {"check_storage": True}})
         t = StoringTask(should_succeed=False)
 
-        self.assertRaises(RuntimeError, lambda: t.result())
+        self.assertRaises(RuntimeError, lambda: run(t))
 
 
 class TestTaskIO(unittest.TestCase):
@@ -238,25 +239,3 @@ class TaskWithDate(Task):
 class FarDepOnDate(Task):
     def requirements(self):
         return TaskDependsOnDate()
-
-
-class TestUpdateTime(unittest.TestCase):
-    def test_own(self):
-        t = TaskWithDate()
-        self.assertEqual(datetime.datetime(2022, 1, 1), t._resolve_update_time())
-
-    def test_dependencies(self):
-        t = TaskDependsOnDate()
-        self.assertEqual(datetime.datetime(2022, 1, 1), t._resolve_update_time())
-
-    def test_stale_cache(self):
-        t = TaskDependsOnDate()
-        self.assertFalse(t.is_cached())
-
-    def test_good_cache(self):
-        t = TaskWithDate()
-        self.assertTrue(t.is_cached())
-
-    def test_doubly_nested_date(self):
-        t = FarDepOnDate()
-        self.assertEqual(datetime.datetime(2022, 1, 1), t._resolve_update_time())

@@ -1,36 +1,34 @@
 from typing import (
     Any,
-    TypeVar,
-    Mapping,
+    cast,
     Optional,
-    TYPE_CHECKING,
-    TypedDict,
-    Literal,
+    TypeAlias,
+    Hashable,
+    Mapping,
+    MutableMapping,
 )
 
-import copy
 import logging
 import omegaconf as oc
-import tqdm
 
-from dask.distributed import Client, Future, as_completed, LocalCluster, wait
+from dask.optimization import fuse, inline_functions
+from dask.distributed import Client, LocalCluster
+
+import aqueduct.backend.backend
 
 from ..config import set_config, get_config
 from .backend import Backend
 from ..task import AbstractTask
-from ..task_tree import TaskTree, _map_type_in_tree, _resolve_task_tree, TypeTree
-
-if TYPE_CHECKING:
-    from .base import BackendSpec
-
-_T = TypeVar("_T")
+from ..task_tree import (
+    TaskTree,
+)
 
 _logger = logging.getLogger(__name__)
 
+DaskComputation: TypeAlias = Any  # Must be any because of literal types.
+DaskGraph: TypeAlias = MutableMapping[Hashable, DaskComputation]
 
-class DaskBackendDictSpec(TypedDict):
-    type: Literal["dask"]
-    address: str
+DaskBackendDictSpec: TypeAlias = Mapping[str, int | str]
 
 
 class DaskBackend(Backend):
@@ -46,111 +44,152 @@ class DaskBackend(Backend):
         else:
             self.client = client
 
-        self.unique_keys_done = set()
-        self.unique_keys_submitted = set()
+    def _run(self, task: TaskTree):
+        _logger.info("Computing Dask graph...")
+        computation, graph = add_work_to_dask_graph(task, {}, ignore_cache=False)
+        _logger.info(f"Dask Graph has {len(graph)} unique tasks.")
 
-    def execute(self, task: TaskTree):
-        with tqdm.tqdm() as pbar:
-            _logger.info("Creating graph...")
+        _logger.info("Optimizing graph...")
+        optimized, dependencies = fuse(graph, keys=computation)
+        optimized = inline_functions(optimized, computation, [tuple])
+        _logger.info(f"Optimized graph has {len(optimized)} tasks.")
 
-            def on_future(future):
-                self.unique_keys_submitted.add(future.key)
-                future.add_done_callback(on_future_done)
-                pbar.reset(total=len(self.unique_keys_submitted))
-                pbar.update(len(self.unique_keys_done))
-                pbar.refresh()
-
-            def on_future_done(future):
-                self.unique_keys_done.add(future.key)
-                pbar.reset(len(self.unique_keys_submitted))
-                pbar.update(len(self.unique_keys_done))
-                pbar.refresh()
-
-            graph, futures_by_key = create_dask_graph(
-                task,
-                self.client,
-                backend_spec=self._spec(),
-                on_future=on_future,
-            )
-
-            _logger.info(f"Submitted {len(futures_by_key)} unique tasks.")
-
-            value = compute_dask_graph(graph)
-
-            return value
+        return self.client.get(optimized, computation)
 
     def _scheduler_address(self):
         return self.client.scheduler_info()["address"]
 
     def _spec(self) -> DaskBackendDictSpec:
-        return {"type": "dask", "address": self._scheduler_address()}
+        scheduler_address = cast(str, self._scheduler_address())
+        return {"type": "dask", "address": scheduler_address}
 
     def __str__(self):
-        return f"DaskBackend(scheduler={self._scheduler_address()})"
+        return f"DaskBackend"
 
 
-def wrap_task(cfg: oc.DictConfig, task: AbstractTask, *args, **kwargs):
+def wrap_task(
+    backend_spec: DaskBackendDictSpec,
+    cfg: oc.DictConfig,
+    task: AbstractTask,
+    *args,
+    **kwargs,
+):
+    aqueduct.backend.backend.AQ_CURRENT_BACKEND = resolve_dask_backend_dict_spec(
+        backend_spec
+    )
     set_config(cfg)
     return task(*args, **kwargs)
 
 
-def create_dask_graph(
-    task: TaskTree,
-    client: Client,
-    backend_spec: "Optional[BackendSpec]",
-    on_task=None,
-    on_future=None,
-) -> tuple[TypeTree[Future], dict[str, Future]]:
-    task_keys = {}
+def resolve_dask_backend_dict_spec(
+    spec: DaskBackendDictSpec,
+) -> DaskBackend:
+    client = resolve_client_from_dict_spec(spec)
+    return DaskBackend(client)
 
-    def gather_key(task: Future):
-        task_keys[task.key] = task
 
-    def task_to_dask_future(task: AbstractTask, requirements=None) -> Future:
-        cfg = get_config()
-        resolved_config = copy.deepcopy(cfg)
-        oc.OmegaConf.resolve(resolved_config)
+def resolve_client_from_dict_spec(spec: DaskBackendDictSpec):
+    match spec:
+        case {"type": "dask", "address": str(address)}:
+            return Client(address)
+        case {"type": "dask", "n_workers": int(n_workers)}:
+            return Client(LocalCluster(n_workers=n_workers))
+        case _:
+            raise ValueError("Could not parse Dask backend specification.")
 
-        if requirements is not None:
-            future = client.submit(
-                wrap_task,
-                resolved_config,
-                task,
-                requirements,
-                backend_spec=backend_spec,
-                key=task._unique_key(),
-            )
-        else:
-            future = client.submit(
-                wrap_task,
-                resolved_config,
-                task,
-                backend_spec=backend_spec,
-                key=task._unique_key(),
-            )
 
-        if on_future is not None:
-            on_future(future)
+def add_task_to_dask_graph(
+    task: AbstractTask, graph: DaskGraph, ignore_cache: bool = False
+) -> tuple[str, DaskGraph]:
+    task_key = task._unique_key()
 
-        return future
+    if task_key in graph:
+        return task_key, graph
 
-    future = _resolve_task_tree(
-        task, task_to_dask_future, after_map=gather_key, before_map=on_task
+    requirements = task._resolve_requirements(ignore_cache=ignore_cache)
+
+    current_cfg = get_config()
+
+    if requirements is None:
+        graph[task_key] = (
+            wrap_task,
+            aqueduct.backend.backend.AQ_CURRENT_BACKEND._spec(),
+            current_cfg,
+            task,
+        )
+    else:
+        computation, graph = add_work_to_dask_graph(
+            requirements, graph, ignore_cache=ignore_cache
+        )
+        graph[task_key] = (
+            wrap_task,
+            aqueduct.backend.backend.AQ_CURRENT_BACKEND._spec(),
+            current_cfg,
+            task,
+            computation,
+        )
+
+    return task_key, graph
+
+
+def add_list_to_dask_graph(
+    work: list, graph: DaskGraph, ignore_cache: bool = False
+) -> tuple[list[str | list], DaskGraph]:
+    new_list = []
+    for x in work:
+        computation, graph = add_work_to_dask_graph(x, graph, ignore_cache=ignore_cache)
+        new_list.append(computation)
+
+    return new_list, graph
+
+
+def add_tuple_to_dask_graph(
+    work: tuple, graph: DaskGraph, ignore_cache: bool = False
+) -> tuple[DaskComputation, DaskGraph]:
+    work_as_list = list(work)
+
+    computation, graph = add_list_to_dask_graph(
+        work_as_list, graph, ignore_cache=ignore_cache
     )
 
-    return future, task_keys
+    return (tuple, computation), graph
 
 
-def compute_dask_graph(graph):
-    """This fetches the first layer of futures but does not resolve dependencies. Useful
-    to get the list of tasks we need to wait on to execute another task."""
-    computed = _map_type_in_tree(graph, Future, dask_future_to_result)
-    return computed
+def add_dict_to_dask_graph(
+    work: dict, graph: DaskGraph, ignore_cache: bool = False
+) -> tuple[DaskComputation, DaskGraph]:
+    work_as_list = list(work.values())
+
+    computation, graph = add_list_to_dask_graph(
+        work_as_list, graph, ignore_cache=ignore_cache
+    )
+
+    def rebuild_dict(mapped_values):
+        return {k: v for k, v in zip(work.keys(), mapped_values)}
+
+    return (rebuild_dict, computation), graph
 
 
-def resolve_dask_dict_backend_spec(spec: DaskBackendDictSpec) -> DaskBackend:
-    return DaskBackend(Client(address=spec.get("address", None)))
+def add_work_to_dask_graph(
+    work: TaskTree, graph: DaskGraph, ignore_cache: bool = False
+) -> tuple[DaskComputation, DaskGraph]:
+    if isinstance(work, list):
+        computation, graph = add_list_to_dask_graph(
+            work, graph, ignore_cache=ignore_cache
+        )
+    elif isinstance(work, AbstractTask):
+        computation, graph = add_task_to_dask_graph(
+            work, graph, ignore_cache=ignore_cache
+        )
+    elif isinstance(work, tuple):
+        computation, graph = add_tuple_to_dask_graph(
+            work, graph, ignore_cache=ignore_cache
+        )
+    elif isinstance(work, dict):
+        computation, graph = add_dict_to_dask_graph(
+            work, graph, ignore_cache=ignore_cache
+        )
+    else:
+        raise RuntimeError("Unhandled type when adding work to dask graph.")
 
-
-def dask_future_to_result(future: Future):
-    return future.result()
+    return computation, graph

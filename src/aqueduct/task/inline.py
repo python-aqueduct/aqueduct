@@ -31,7 +31,7 @@ class InlineTaskWrapper(Task[_T]):
             from ..backend import ImmediateBackend
 
             immediate_backend = ImmediateBackend()
-            requirements = immediate_backend.execute(inner_requirements)
+            requirements = immediate_backend.run(inner_requirements)
         else:
             requirements = None
 

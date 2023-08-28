@@ -75,7 +75,7 @@ def get_requirements(backend: Optional[BackendSpec] = None):
     if requirements is None:
         return None
     else:
-        return backend.execute(requirements)
+        return backend.run(requirements)
 
 
 def get_backend(default: BackendSpec) -> Backend:

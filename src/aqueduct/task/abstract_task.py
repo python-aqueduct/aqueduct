@@ -191,23 +191,6 @@ class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
             ]
         )
 
-    def result(self, backend: Optional["Backend"] = None) -> _T:
-        """Compute the result of the Task locally and return it. This is equivalent to
-        calling to using the `execute` method of the :class:`ImmediateBackend`.
-
-        Arguments:
-            backend: The computing backend to use. Defaults to :class:`ImmediateBackend`.
-
-        Returns:
-            The value returned by the `run` method."""
-
-        if backend is None:
-            from ..backend import ImmediateBackend
-
-            backend = ImmediateBackend()
-
-        return backend.execute(self)
-
     def __str__(self):
         task_name = self.task_name()
         args_str = tuple([str(x) for x in self._args[1:]])

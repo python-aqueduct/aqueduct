@@ -24,9 +24,7 @@ _T = TypeVar("_T")
 _U = TypeVar("_U")
 
 
-TypeTree: TypeAlias = (
-    list["TypeTree[_T]"] | tuple["TypeTree[_T]"] | dict[Any, "TypeTree[_T]"] | _T | None
-)
+TypeTree: TypeAlias = list | tuple | dict | _T | None
 
 TaskTree: TypeAlias = TypeTree["AbstractTask"]
 
