@@ -66,6 +66,9 @@ class DaskGraphBackend(Backend):
 
         return self.client.gather(future, errors="raise")
 
+    def _run(self, task):
+        return self.execute(task)
+
     def _scheduler_address(self):
         return self.client.scheduler_info()["address"]
 

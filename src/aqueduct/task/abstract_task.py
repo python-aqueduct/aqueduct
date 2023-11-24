@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from ..task_tree import TaskTree
 
 _T = TypeVar("_T")
+_U = TypeVar("_U")
 
 _logger = logging.getLogger(__name__)
 
@@ -193,8 +194,7 @@ class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
 
     def __str__(self):
         task_name = self.task_name()
-        args_str = tuple([str(x) for x in self._args[1:]])
-        return f"{task_name}(args={args_str}, kwargs={self._kwargs})"
+        return f"{task_name}"
 
     def set_force_root(self, value=True):
         self._aq_force_root = value

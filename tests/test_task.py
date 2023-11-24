@@ -22,6 +22,7 @@ from aqueduct.task import (
 from aqueduct.task.autoresolve import fetch_args_from_config
 from aqueduct.task.task import resolve_writer
 from aqueduct.base import run
+from aqueduct import apply
 
 
 class TestCompute(unittest.TestCase):
@@ -239,3 +240,17 @@ class TaskWithDate(Task):
 class FarDepOnDate(Task):
     def requirements(self):
         return TaskDependsOnDate()
+
+
+def square(x):
+    return x * x
+
+
+class TestApply(unittest.TestCase):
+    def test_map(self):
+        t = PretenseTask(2, 2, 2)
+
+        t_map = apply(square, t)
+        result = run(t_map)
+        self.assertEqual(36, result)
+        self.assertEqual("PretenseTask*square", t_map.task_name())

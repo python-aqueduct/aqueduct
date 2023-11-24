@@ -13,6 +13,7 @@ The two concrete types of tasks which you should subclass are :class:`Task` and
 
 from .abstract_task import AbstractTask
 from .aggregate import AggregateTask
+from .apply import apply
 from .extract_artifact import as_artifact
 from .inline import inline
 from .io_task import IOTask
@@ -23,6 +24,7 @@ from .task import Task
 __all__ = [
     "AbstractTask",
     "AggregateTask",
+    "apply",
     "as_artifact",
     "Task",
     "inline",
