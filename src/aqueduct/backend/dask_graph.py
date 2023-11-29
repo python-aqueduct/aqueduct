@@ -2,12 +2,11 @@ from typing import (
     Any,
     TypeVar,
     Optional,
-    TYPE_CHECKING,
     TypedDict,
     Literal,
     TypeAlias,
     Hashable,
-    Mapping,
+    MutableMapping,
 )
 
 import logging
@@ -29,7 +28,7 @@ _T = TypeVar("_T")
 _logger = logging.getLogger(__name__)
 
 DaskComputation: TypeAlias = Any  # Must be any because of literal types.
-DaskGraph: TypeAlias = Mapping[Hashable, DaskComputation]
+DaskGraph: TypeAlias = MutableMapping[Hashable, DaskComputation]
 
 
 class DaskGraphBackendDictSpec(TypedDict):
