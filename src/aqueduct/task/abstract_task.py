@@ -65,6 +65,9 @@ class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
             "__call__ not implemented for Task. Did you mean to use IOTask or PureTask as a parent class?"
         )
 
+    def __iter__(self, *args, **kwargs):
+        return []
+
     def run(self, reqs: Any) -> _T:
         """Subclass this to specify the work done to realize the task. When called,
         the resolved requirements are passed as the first positional argument."""

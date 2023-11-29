@@ -7,7 +7,6 @@ import pandas as pd
 
 from aqueduct.artifact import (
     Artifact,
-    ArtifactSpec,
     InMemoryArtifact,
     CompositeArtifact,
     resolve_artifact_from_spec,
