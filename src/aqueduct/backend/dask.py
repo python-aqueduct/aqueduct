@@ -19,6 +19,7 @@ import aqueduct.backend.backend
 from ..config import set_config, get_config
 from .backend import Backend
 from ..task import AbstractTask
+from ..task.parallel_task import AbstractParallelTask
 from ..task_tree import (
     TaskTree,
 )
@@ -110,6 +111,9 @@ def add_task_to_dask_graph(
 
     current_cfg = get_config()
 
+    if aqueduct.backend.backend.AQ_CURRENT_BACKEND is None:
+        raise RuntimeError("No backend set.")
+
     if requirements is None:
         graph[task_key] = (
             wrap_task,
@@ -130,6 +134,43 @@ def add_task_to_dask_graph(
         )
 
     return task_key, graph
+
+
+def add_parallel_task_to_dask_graph(
+    parallel_task: AbstractParallelTask, graph, ignore_cache=False
+):
+    base_task_key = parallel_task._unique_key()
+
+    requirements = parallel_task._resolve_requirements(ignore_cache=ignore_cache)
+
+    current_cfg = get_config()
+
+    if requirements is not None:
+        requirements_key, graph = add_work_to_dask_graph(
+            requirements, graph, ignore_cache=ignore_cache
+        )
+
+    if aqueduct.backend.backend.AQ_CURRENT_BACKEND is None:
+        raise RuntimeError("No backend set.")
+
+    accumulator_key = f"{base_task_key}_accumulator"
+    graph[accumulator_key] = (parallel_task.accumulator, requirements_key)
+
+    for idx, item in enumerate(parallel_task.items()):
+        task_key = f"{base_task_key}_{idx}"
+
+        current_acc_key = accumulator_key if idx == 0 else f"{base_task_key}_{idx-1}"
+
+        graph[task_key] = (
+            parallel_task.reduce,
+            (parallel_task.map, item, requirements_key),
+            current_acc_key,
+            requirements_key,
+        )
+
+    last_key = f"{base_task_key}_{idx}"
+
+    return last_key, graph
 
 
 def add_list_to_dask_graph(
@@ -175,6 +216,10 @@ def add_work_to_dask_graph(
 ) -> tuple[DaskComputation, DaskGraph]:
     if isinstance(work, list):
         computation, graph = add_list_to_dask_graph(
+            work, graph, ignore_cache=ignore_cache
+        )
+    elif isinstance(work, AbstractParallelTask):
+        computation, graph = add_parallel_task_to_dask_graph(
             work, graph, ignore_cache=ignore_cache
         )
     elif isinstance(work, AbstractTask):

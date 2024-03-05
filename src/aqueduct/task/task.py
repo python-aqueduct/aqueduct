@@ -66,8 +66,8 @@ DEFAULT_WRITER = pickle_write_to_file
 
 
 def resolve_writer(t: Type[_T] | None) -> Callable[[_T, str], None]:
-    if t is not None:
-        return WRITERS.get(t, DEFAULT_WRITER)
+    if t is not None and t in WRITERS:
+        return WRITERS[t]
     else:
         return DEFAULT_WRITER
 
@@ -75,8 +75,8 @@ def resolve_writer(t: Type[_T] | None) -> Callable[[_T, str], None]:
 def resolve_reader(t: Type[_T] | None, filename: pathlib.Path) -> Callable[[str], _T]:
     suffix = filename.suffix
 
-    if t is not None:
-        return READER_OF_TYPE.get(t, DEFAULT_READER)
+    if t is not None and t in READER_OF_TYPE:
+        return READER_OF_TYPE[t]
     elif t is None and suffix:
         return READER_OF_SUFFIX.get(suffix, DEFAULT_READER)
     else:
@@ -184,7 +184,7 @@ class Task(AbstractTask[_T]):
         return result
 
     def run(self, *args, **kwargs) -> _T:
-        pass
+        raise NotImplementedError()
 
     def save(self, artifact: Artifact, object: _T):
         """Save `object` according to the specification of `artifact`.

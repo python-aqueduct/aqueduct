@@ -1,7 +1,12 @@
 import unittest
 
+import aqueduct.backend.backend
 from aqueduct.task import Task
-from aqueduct.backend.dask import add_work_to_dask_graph, DaskBackend
+from aqueduct.backend.dask import (
+    add_work_to_dask_graph,
+    DaskBackend,
+    resolve_dask_backend_dict_spec,
+)
 
 
 class TaskB(Task):
@@ -21,6 +26,14 @@ class TaskA(Task):
 
 
 class TestDaskBackend(unittest.TestCase):
+    def setUp(self) -> None:
+        aqueduct.backend.backend.AQ_CURRENT_BACKEND = resolve_dask_backend_dict_spec(
+            {
+                "type": "dask",
+                "n_workers": 1,
+            }
+        )
+
     def test_add_task(self):
         work = TaskB(2)
         computation, graph = add_work_to_dask_graph(work, {})
