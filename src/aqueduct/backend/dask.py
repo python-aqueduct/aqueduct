@@ -139,38 +139,96 @@ def add_task_to_dask_graph(
 def add_parallel_task_to_dask_graph(
     parallel_task: AbstractParallelTask, graph, ignore_cache=False
 ):
-    base_task_key = parallel_task._unique_key()
+    """Expand all the work in a parallel task and add it to the graph."""
+    if aqueduct.backend.backend.AQ_CURRENT_BACKEND is None:
+        raise RuntimeError("No backend set.")
 
+    # Resolve requirements.
     requirements = parallel_task._resolve_requirements(ignore_cache=ignore_cache)
-
-    current_cfg = get_config()
-
     if requirements is not None:
         requirements_key, graph = add_work_to_dask_graph(
             requirements, graph, ignore_cache=ignore_cache
         )
+    else:
+        requirements_key = None
 
-    if aqueduct.backend.backend.AQ_CURRENT_BACKEND is None:
-        raise RuntimeError("No backend set.")
+    # Gather task context.
+    base_task_key = parallel_task._unique_key()
+    current_cfg = get_config()
 
+    # Insert accumulator into graph.
     accumulator_key = f"{base_task_key}_accumulator"
     graph[accumulator_key] = (parallel_task.accumulator, requirements_key)
 
-    for idx, item in enumerate(parallel_task.items()):
-        task_key = f"{base_task_key}_{idx}"
+    # Expand items and perform map reduce.
+    items_list = list(parallel_task.items())
+    for idx, item in enumerate(items_list):
+        reduce_task_key = f"{base_task_key}_reduce_{idx}"
 
-        current_acc_key = accumulator_key if idx == 0 else f"{base_task_key}_{idx-1}"
-
-        graph[task_key] = (
-            parallel_task.reduce,
-            (parallel_task.map, item, requirements_key),
-            current_acc_key,
+        map_work_unit = (
+            wrap_task,
+            aqueduct.backend.backend.AQ_CURRENT_BACKEND._spec(),
+            current_cfg,
+            parallel_task.map,
+            item,
             requirements_key,
         )
 
-    last_key = f"{base_task_key}_{idx}"
+        # We use a binary tree to make a balanced reduce.
+        left_child_idx = idx * 2 + 1
+        right_child_idx = idx * 2 + 2
 
-    return last_key, graph
+        if left_child_idx < len(items_list):
+            left_child_key = f"{base_task_key}_reduce_{left_child_idx}"
+        else:
+            left_child_key = accumulator_key
+
+        if right_child_idx < len(items_list):
+            right_child_key = f"{base_task_key}_reduce_{right_child_idx}"
+        else:
+            right_child_key = accumulator_key
+
+        # Add children together.
+        children_reduce_work_unit = (
+            wrap_task,
+            aqueduct.backend.backend.AQ_CURRENT_BACKEND._spec(),
+            current_cfg,
+            parallel_task.reduce,
+            left_child_key,
+            right_child_key,
+            requirements_key,
+        )
+
+        # Perform map on current node.
+        map_work_unit = (
+            wrap_task,
+            aqueduct.backend.backend.AQ_CURRENT_BACKEND._spec(),
+            current_cfg,
+            parallel_task.map,
+            item,
+            requirements_key,
+        )
+
+        # Add reduce of children with map of current node.
+        self_reduce_work_unit = (
+            wrap_task,
+            aqueduct.backend.backend.AQ_CURRENT_BACKEND._spec(),
+            current_cfg,
+            parallel_task.reduce,
+            map_work_unit,
+            children_reduce_work_unit,
+            requirements_key,
+        )
+
+        # Add all the tasks implied by this in the graph.
+        graph[reduce_task_key] = self_reduce_work_unit
+
+    if len(items_list) > 0:
+        root_reduce_key = f"{base_task_key}_reduce_{0}"
+    else:
+        root_reduce_key = accumulator_key
+
+    return root_reduce_key, graph
 
 
 def add_list_to_dask_graph(

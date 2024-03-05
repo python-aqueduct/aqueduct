@@ -33,7 +33,7 @@ class AbstractParallelTask(AbstractTask, Generic[_T, _A]):
 
         return acc
 
-    def map(self, item, requirements=None) -> _T:
+    def map(self, item: _T, requirements=None) -> _A:
         """Map function to be implemented by subclasses. Defaults to the identity
         function. Override to provide a custom map function."""
         raise NotImplementedError()
@@ -47,7 +47,7 @@ class AbstractParallelTask(AbstractTask, Generic[_T, _A]):
             Defaults to an empty list."""
         raise NotImplementedError()
 
-    def reduce(self, item: _T, accumulator: _A, requirements=None) -> _A:
+    def reduce(self, lhs: _A, rhs: _A, requirements=None) -> _A:
         """Reduction function. Defaults to appending in a list. Override to provide a
         custom reduce function."""
         raise NotImplementedError()
@@ -60,19 +60,19 @@ class ParallelTask(AbstractParallelTask[_T, list[_T]]):
     def items(self) -> Iterable:
         raise NotImplementedError("ParallelTask must implement items()")
 
-    def __call__(self, *args, **kwargs) -> list:
-        acc = self.accumulator()
-        for item in self.items(*args):
-            acc = self.reduce(self.map(item), acc)
+    def __call__(self, requirements) -> list:
+        acc = self.accumulator(requirements)
+        for item in self.items():
+            acc = self.reduce(self.map(item, requirements), acc, requirements)
 
         return acc
 
-    def map(self, item) -> _T:
+    def map(self, item, requirements) -> list[_T]:
         """Map function to be implemented by subclasses. Defaults to the identity
         function. Override to provide a custom map function."""
-        return item
+        return [item]
 
-    def accumulator(self) -> list[_T]:
+    def accumulator(self, requirements) -> list[_T]:
         """Base accumulator with which the reduce operation is initialized.
         Override this method to provide a custom accumulator.
 
@@ -81,10 +81,10 @@ class ParallelTask(AbstractParallelTask[_T, list[_T]]):
             Defaults to an empty list."""
         return []
 
-    def reduce(self, item: _T, accumulator: list[_T]) -> list[_T]:
+    def reduce(self, lhs: list[_T], rhs: list[_T], requirements) -> list[_T]:
         """Reduction function. Defaults to appending in a list. Override to provide a
         custom reduce function."""
-        return accumulator + [item]
+        return lhs + rhs
 
 
 class Task(AbstractParallelTask[_T, _T]):

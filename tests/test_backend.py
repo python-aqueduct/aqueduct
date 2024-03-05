@@ -7,6 +7,7 @@ from aqueduct.backend import (
 )
 from aqueduct.config import set_config
 from aqueduct.task import Task
+from aqueduct.task.parallel_task import ParallelTask
 
 
 class TestBackendResolution(unittest.TestCase):
@@ -44,6 +45,23 @@ class TaskA(Task[int]):
         return 2
 
 
+class ParallelTask(ParallelTask):
+    def requirements(self):
+        return TaskA()
+
+    def items(self):
+        return [1, 2, 3]
+
+    def map(self, x, requirements):
+        return [x**2 + requirements]
+
+    def accumulator(self, requirements=None) -> list:
+        return []
+
+    def reduce(self, lhs, rhs, requirements=None):
+        return sorted(lhs + rhs)
+
+
 class TaskB(Task[int]):
     def run(self, reqs):
         return reqs * 2
@@ -67,6 +85,11 @@ class TestImmediateBackend(unittest.TestCase):
         t = TaskB()
 
         self.assertEqual(self.backend.run(t), 4)
+
+    def test_run_parallel_task(self):
+        t = ParallelTask()
+
+        self.assertListEqual(self.backend.run(t), [3, 6, 11])
 
 
 class TestConcurrentBackend(TestImmediateBackend):

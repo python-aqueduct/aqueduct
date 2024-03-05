@@ -23,10 +23,15 @@ class TaskA(ParallelTask):
         return x**2
 
     def accumulator(self, requirements=None):
-        return requirements
+        return 0
 
-    def reduce(self, x, acc, requirements=None):
-        return acc + x
+    def reduce(self, lhs, rhs, requirements=None):
+        return lhs + rhs
+
+
+class NoItemsTask(TaskA):
+    def items(self):
+        return []
 
 
 class TestDaskParallelTask(unittest.TestCase):
@@ -36,4 +41,9 @@ class TestDaskParallelTask(unittest.TestCase):
     def test_run(self):
         task = TaskA()
         result = self.backend.run(task)
-        self.assertEqual(result, 16)
+        self.assertEqual(result, 14)
+
+    def test_no_items(self):
+        task = NoItemsTask()
+        result = self.backend.run(task)
+        self.assertEqual(result, 0)
