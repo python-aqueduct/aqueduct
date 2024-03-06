@@ -22,9 +22,9 @@ from ..artifact import (
     LocalFilesystemArtifact,
     resolve_artifact_from_spec,
 )
-from .abstract_task import AbstractTask
 from ..config import get_config
 from ..task_tree import TaskTree
+from ..task import Task
 
 import aqueduct.backend.backend
 
@@ -117,7 +117,7 @@ def resolve_notebook_export_spec(
     return export_fn
 
 
-class NotebookTask(AbstractTask):
+class NotebookTask(Task):
     REQUIREMENTS_INJECTION = False
     """Tells the task to inject the requirements into the kernel from memory. Since the
     requirement objects need to be serialized and deserialized, this can be very slow.
@@ -143,7 +143,7 @@ class NotebookTask(AbstractTask):
         else:
             return super()._resolve_requirements(ignore_cache=ignore_cache)
 
-    def __call__(self, requirements=None):
+    def run(self, requirements=None):
         notebook_path = self._resolve_notebook()
 
         with open(notebook_path) as f:

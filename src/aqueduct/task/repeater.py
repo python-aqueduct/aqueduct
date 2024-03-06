@@ -2,10 +2,10 @@ from typing import Iterable, Mapping, Type, TypeVar, Generic, Sequence
 
 import itertools
 
-from .abstract_task import AbstractTask, ArtifactTaskWrapper
+from .abstract_task import AbstractTask
 from ..artifact import CompositeArtifact, resolve_artifact_from_spec
 from .task import Task
-from .extract_artifact import as_artifact
+from .extract_artifact import ExtractArtifact, as_artifact
 from .inline import inline, InlineTaskWrapper
 
 
@@ -37,7 +37,7 @@ class RepeaterTask(Task, Generic[_Task]):
                 f"Key {key_intersection.pop()} is assigned both as an iterator and as a fixed parameter."
             )
 
-    def requirements(self) -> Sequence[_Task | ArtifactTaskWrapper | InlineTaskWrapper]:
+    def requirements(self) -> Sequence[_Task | ExtractArtifact | InlineTaskWrapper]:
         keys = list(self.iterators.keys())
         iterators = list(self.iterators.values())
 

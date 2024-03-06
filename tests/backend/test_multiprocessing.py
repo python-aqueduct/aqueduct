@@ -1,7 +1,7 @@
 import unittest
 
 from aqueduct import Task, run
-from aqueduct.task.parallel_task import ParallelTask
+from aqueduct.task.mapreduce import MapReduceTask
 from aqueduct.backend import MultiprocessingBackend
 
 
@@ -13,7 +13,7 @@ class TaskA(Task):
         return self.value
 
 
-class TaskB(ParallelTask):
+class TaskB(MapReduceTask):
     def items(self):
         return [1, 2, 3]
 

@@ -4,9 +4,10 @@ import functools
 import multiprocessing
 
 from . import Backend
-from ..task import AbstractTask
-from ..task.parallel_task import AbstractParallelTask
+from ..task import AbstractTask, Task
+from ..task.mapreduce import AbstractMapReduceTask
 from ..task_tree import TaskTree, _resolve_task_tree
+from .immediate import execute_task
 
 
 class MultiprocessingBackendDictSpec(TypedDict):
@@ -19,7 +20,7 @@ def call_map_fn(args):
     return map_fn(item, requirements)
 
 
-def execute_parallel_task(pool, task: AbstractParallelTask, requirements=None):
+def execute_parallel_task(pool, task: AbstractMapReduceTask, requirements=None):
     accumulator = task.accumulator(requirements)
     for mapped_item in pool.imap_unordered(
         call_map_fn, [(task.map, item, requirements) for item in task.items()]
@@ -29,14 +30,13 @@ def execute_parallel_task(pool, task: AbstractParallelTask, requirements=None):
     return task.post(accumulator, requirements)
 
 
-def execute_task(pool, task: AbstractTask, requirements=None):
-    if isinstance(task, AbstractParallelTask):
+def execution_dispatch(pool, task: AbstractTask, requirements=None):
+    if isinstance(task, Task):
+        return execute_task(task, requirements)
+    elif isinstance(task, AbstractMapReduceTask):
         return execute_parallel_task(pool, task, requirements)
     else:
-        if requirements is not None:
-            return task(requirements)
-        else:
-            return task()
+        raise RuntimeError("Unhandled task type.")
 
 
 class MultiprocessingBackend(Backend):
@@ -49,7 +49,7 @@ class MultiprocessingBackend(Backend):
 
     def _run(self, work: TaskTree):
         with multiprocessing.Pool(processes=self.n_workers) as pool:
-            resolve_fn = functools.partial(execute_task, pool)
+            resolve_fn = functools.partial(execution_dispatch, pool)
             result = _resolve_task_tree(work, resolve_fn)
 
         return result

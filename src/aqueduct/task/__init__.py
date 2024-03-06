@@ -17,10 +17,10 @@ from .apply import apply
 from .extract_artifact import as_artifact
 from .inline import inline
 from .io_task import IOTask
+from .task import Task
 from .notebook import NotebookTask
 from .repeater import RepeaterTask
-from .task import Task
-from .parallel_task import ParallelTask
+from .mapreduce import MapReduceTask
 
 __all__ = [
     "AbstractTask",
@@ -32,5 +32,5 @@ __all__ = [
     "IOTask",
     "NotebookTask",
     "RepeaterTask",
-    "ParallelTask",
+    "MapReduceTask",
 ]

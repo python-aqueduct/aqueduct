@@ -19,6 +19,7 @@ from ..artifact import Artifact, ArtifactSpec, resolve_artifact_from_spec
 from ..config import AqueductConfig, ConfigSpec, resolve_config_from_spec
 from .autoresolve import WrapInitMeta
 from ..task_tree import reduce_type_in_tree
+from .autostore import load_artifact, store_artifact
 
 
 if TYPE_CHECKING:
@@ -26,7 +27,6 @@ if TYPE_CHECKING:
     from ..task_tree import TaskTree
 
 _T = TypeVar("_T")
-_U = TypeVar("_U")
 
 _logger = logging.getLogger(__name__)
 
@@ -35,6 +35,8 @@ class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
     """Base class for a all Tasks. In most cases you don't have to subclass this
     directly. Subclass either :class:`IOTask` of :class:`Task` to define your own Task.
     """
+
+    _ALLOW_SAVE = True
 
     CONFIG: ConfigSpec = None
     """The configuration of the Task class. It specifies how the `config` method should
@@ -58,18 +60,6 @@ class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
         self._args = ""
         self._kwargs = ""
 
-    def __call__(self, *args, **kwargs):
-        """Prepare the context and call `run`. Both class:`Task` and :class:`IOTask`
-        overwrite this."""
-        raise NotImplementedError(
-            "__call__ not implemented for Task. Did you mean to use IOTask or PureTask as a parent class?"
-        )
-
-    def run(self, reqs: Any) -> _T:
-        """Subclass this to specify the work done to realize the task. When called,
-        the resolved requirements are passed as the first positional argument."""
-        raise NotImplementedError()
-
     def artifact(self) -> Optional[ArtifactSpec]:
         """Describe the artifact produced by `run`. See :class:`Artifact` for more
         details.
@@ -90,55 +80,12 @@ class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
         Returns:
             A boolean indicating if there exists a stored artifact as specified by the
             `artifact` method."""
-        artifact_spec = self.artifact()
-        update_time = self._resolve_update_time()
+        artifact = resolve_artifact_from_spec(self.artifact())
 
-        if artifact_spec is not None:
-            artifact = resolve_artifact_from_spec(artifact_spec)
-
-            if artifact.exists() and artifact.last_modified() >= update_time:
-                return True
-            if artifact.exists() and artifact.last_modified() < update_time:
-                _logger.info(
-                    f"Detected artifact older than AQ_UPDATED for task {self}."
-                )
-                return False
-
-        return False
-
-    def _resolve_own_update_time(self) -> datetime.datetime:
-        if self.AQ_UPDATED is None:
-            return datetime.datetime.fromtimestamp(0)
-        elif isinstance(self.AQ_UPDATED, str):
-            return datetime.datetime.fromisoformat(self.AQ_UPDATED)
-        elif isinstance(self.AQ_UPDATED, datetime.datetime):
-            return self.AQ_UPDATED
+        if artifact is not None:
+            return artifact.exists()
         else:
-            raise ValueError("Could not interpret value of AQ_UPDATED")
-
-    def _resolve_update_time(self) -> datetime.datetime:
-        # We don't use _resolve_requirements here because we don't care about cache
-        # behavior. We want to decide what is the date of the code, and then we decide
-        # if the cache is stale or not.
-
-        # def reduce_fn(task: AbstractTask, acc: datetime.datetime):
-        #     requirements = task.requirements()
-        #     if requirements is not None:
-        #         time_of_reqs = reduce_type_in_tree(
-        #             requirements, AbstractTask, reduce_fn, acc
-        #         )
-        #     else:
-        #         time_of_reqs = datetime.datetime.fromtimestamp(0)
-
-        #     own_time = task._resolve_own_update_time()
-
-        #     return max(time_of_reqs, own_time)
-
-        # update_time = reduce_type_in_tree(
-        #     self, AbstractTask, reduce_fn, datetime.datetime.fromtimestamp(0)
-        # )
-
-        return datetime.datetime.fromtimestamp(0)
+            return False
 
     def requirements(self) -> "TaskTree":
         """Subclass this to express the Tasks that are required for this Task to run.
@@ -203,39 +150,30 @@ class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
         """User friendly name that is used to identify the task in a graph."""
         return self.__class__.__qualname__
 
+    def post(self, result: _T, requirements=None) -> _T:
+        return result
 
-_Task = TypeVar("_Task", bound=AbstractTask)
+    def save(self, object: _T):
+        artifact = resolve_artifact_from_spec(self.artifact())
 
+        if artifact is not None:
+            store_artifact(artifact, object)
 
-class ArtifactTaskWrapper(AbstractTask, Generic[_Task]):
-    def __init__(self, inner: _Task):
-        self.inner = inner
+    def load(self) -> _T:
+        """Load an artifact and return it.
 
-    def __call__(self, *args, **kwargs) -> Artifact | None:
-        if not self.inner.is_cached():
-            self.inner.__call__(*args, **kwargs)
+        If an artifact is specified, this is called to load the artifact from cache
+        to avoid excecuting the `run` method. Override this to implement your own
+        loading behavior.
+        """
+        artifact = resolve_artifact_from_spec(self.artifact())
 
-        return resolve_artifact_from_spec(self.inner.artifact())
+        if artifact is None:
+            raise ValueError(
+                f"Task {self} has no artifact specified, but tried to load one."
+            )
 
-    def artifact(self):
-        return None
-
-    def requirements(self):
-        return self.inner.requirements()
-
-    def _resolve_requirements(self, ignore_cache=False) -> "TaskTree":
-        if self.inner.is_cached():
-            return None
-        else:
-            return super()._resolve_requirements(ignore_cache)
-
-    def run(self, *args, **kwargs):
-        return self.inner.run(*args, **kwargs)
-
-    def _unique_key(self):
-        inner_key = self.inner._unique_key()
-        first_part, *rest = inner_key.split("-")
-        return "-".join([first_part + "*as_artifact", "-".join(rest)])
+        return load_artifact(artifact, type_hint=None)
 
 
 RequirementSpec: TypeAlias = Union[

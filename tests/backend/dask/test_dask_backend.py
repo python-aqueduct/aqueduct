@@ -13,7 +13,7 @@ class TaskB(Task):
     def __init__(self, value):
         self.value = value
 
-    def run(self):
+    def run(self, requirements):
         return self.value**2
 
 

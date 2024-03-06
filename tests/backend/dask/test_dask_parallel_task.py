@@ -1,18 +1,18 @@
 import unittest
 from aqueduct.backend.dask import DaskBackend
 from aqueduct.task import Task
-from aqueduct.task.parallel_task import ParallelTask
+from aqueduct.task.mapreduce import MapReduceTask
 
 
 class TaskB(Task):
     def __init__(self, value):
         self.value = value
 
-    def run(self):
+    def run(self, requirements=None):
         return self.value
 
 
-class TaskA(ParallelTask):
+class TaskA(MapReduceTask):
     def requirements(self):
         return TaskB(2)
 

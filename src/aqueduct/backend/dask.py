@@ -1,5 +1,6 @@
 from typing import (
     Any,
+    Callable,
     cast,
     Optional,
     TypeAlias,
@@ -19,7 +20,8 @@ import aqueduct.backend.backend
 from ..config import set_config, get_config
 from .backend import Backend
 from ..task import AbstractTask
-from ..task.parallel_task import AbstractParallelTask
+from ..task.task import Task
+from ..task.mapreduce import AbstractMapReduceTask
 from ..task_tree import (
     TaskTree,
 )
@@ -68,10 +70,10 @@ class DaskBackend(Backend):
         return f"DaskBackend"
 
 
-def wrap_task(
+def wrap_in_context(
     backend_spec: DaskBackendDictSpec,
     cfg: oc.DictConfig,
-    task: AbstractTask,
+    fn: Callable,
     *args,
     **kwargs,
 ):
@@ -79,7 +81,7 @@ def wrap_task(
         backend_spec
     )
     set_config(cfg)
-    return task(*args, **kwargs)
+    return fn(*args, **kwargs)
 
 
 def resolve_dask_backend_dict_spec(
@@ -116,7 +118,7 @@ def add_task_to_dask_graph(
 
     if requirements is None:
         graph[task_key] = (
-            wrap_task,
+            wrap_in_context,
             aqueduct.backend.backend.AQ_CURRENT_BACKEND._spec(),
             current_cfg,
             task,
@@ -126,7 +128,7 @@ def add_task_to_dask_graph(
             requirements, graph, ignore_cache=ignore_cache
         )
         graph[task_key] = (
-            wrap_task,
+            wrap_in_context,
             aqueduct.backend.backend.AQ_CURRENT_BACKEND._spec(),
             current_cfg,
             task,
@@ -137,7 +139,7 @@ def add_task_to_dask_graph(
 
 
 def add_parallel_task_to_dask_graph(
-    parallel_task: AbstractParallelTask, graph, ignore_cache=False
+    parallel_task: AbstractMapReduceTask, graph, ignore_cache=False
 ):
     """Expand all the work in a parallel task and add it to the graph."""
     if aqueduct.backend.backend.AQ_CURRENT_BACKEND is None:
@@ -187,7 +189,7 @@ def add_parallel_task_to_dask_graph(
 
         # Add children together.
         children_reduce_work_unit = (
-            wrap_task,
+            wrap_in_context,
             aqueduct.backend.backend.AQ_CURRENT_BACKEND._spec(),
             current_cfg,
             parallel_task.reduce,
@@ -198,7 +200,7 @@ def add_parallel_task_to_dask_graph(
 
         # Add reduce of children with map of current node.
         self_reduce_work_unit = (
-            wrap_task,
+            wrap_in_context,
             aqueduct.backend.backend.AQ_CURRENT_BACKEND._spec(),
             current_cfg,
             map_reduce,
@@ -215,9 +217,9 @@ def add_parallel_task_to_dask_graph(
     else:
         root_reduce_key = accumulator_key
 
-    post_task_key = f"{base_task_key}_post"
+    post_task_key = f"{base_task_key}"
     graph[post_task_key] = (
-        wrap_task,
+        wrap_in_context,
         aqueduct.backend.backend.AQ_CURRENT_BACKEND._spec(),
         current_cfg,
         parallel_task.post,
@@ -269,16 +271,17 @@ def add_dict_to_dask_graph(
 def add_work_to_dask_graph(
     work: TaskTree, graph: DaskGraph, ignore_cache: bool = False
 ) -> tuple[DaskComputation, DaskGraph]:
-    if isinstance(work, list):
-        computation, graph = add_list_to_dask_graph(
+
+    if isinstance(work, Task):
+        computation, graph = add_task_to_dask_graph(
             work, graph, ignore_cache=ignore_cache
         )
-    elif isinstance(work, AbstractParallelTask):
+    elif isinstance(work, AbstractMapReduceTask):
         computation, graph = add_parallel_task_to_dask_graph(
             work, graph, ignore_cache=ignore_cache
         )
-    elif isinstance(work, AbstractTask):
-        computation, graph = add_task_to_dask_graph(
+    elif isinstance(work, list):
+        computation, graph = add_list_to_dask_graph(
             work, graph, ignore_cache=ignore_cache
         )
     elif isinstance(work, tuple):

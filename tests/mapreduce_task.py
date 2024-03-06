@@ -3,7 +3,7 @@ import unittest
 
 from aqueduct import run
 from aqueduct.task.task import Task
-from aqueduct.task.parallel_task import ParallelTask
+from aqueduct.task.mapreduce import MapReduceTask
 
 
 class TaskB(Task):
@@ -14,7 +14,7 @@ class TaskB(Task):
         return self.value
 
 
-class TaskA(ParallelTask):
+class TaskA(MapReduceTask):
     def requirements(self):
         return [TaskB(2), TaskB(3), TaskB(2)]
 

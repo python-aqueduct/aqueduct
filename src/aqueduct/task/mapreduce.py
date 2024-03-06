@@ -10,27 +10,17 @@ _T = TypeVar("_T")
 _U = TypeVar("_U")
 
 
-class AbstractParallelTask(AbstractTask, Generic[_T, _A, _U]):
-    """A task with a map-reduce interface to allow parallel processing of input items
-    some compouting backends. When called, runs something equivalent to
-
-        def __call__(self):
-            acc = self.accumulator()
-            for item in self.items(requirements):
-                acc = self.reduce(self.map(item), acc)
-
-            return acc
-
-        where `requirements` is the pre-computed requirements of the task."""
+class AbstractMapReduceTask(AbstractTask, Generic[_T, _A, _U]):
+    """"""
 
     def items(self) -> Iterable:
         """The list of input items to be processed in parallel."""
         raise NotImplementedError()
 
-    def __call__(self, *args, **kwargs) -> _A:
-        acc = self.accumulator()
+    def __call__(self, requirements) -> _A:
+        acc = self.accumulator(requirements)
         for item in self.items():
-            acc = self.reduce(self.map(item), acc)
+            acc = self.reduce(self.map(item, requirements), acc, requirements)
 
         return acc
 
@@ -57,7 +47,7 @@ class AbstractParallelTask(AbstractTask, Generic[_T, _A, _U]):
         raise NotImplementedError()
 
 
-class ParallelTask(AbstractParallelTask[_T, list[_T], list[_T]]):
+class MapReduceTask(AbstractMapReduceTask[_T, list[_T], list[_T]]):
     """A default ParallelTask implementation with trivial choices for `items`, `map`,
     `accumulator` and `reduce`."""
 
@@ -92,36 +82,3 @@ class ParallelTask(AbstractParallelTask[_T, list[_T], list[_T]]):
 
     def post(self, acc: list[_T], requirements=None) -> list[_T]:
         return acc
-
-
-class Task(AbstractParallelTask[_T, _T, _T]):
-    """Pose a regular task as a specialized version of a parallel task."""
-
-    def items(self, requirements) -> Iterable:
-        """The list of input items to be processed in parallel."""
-        return requirements
-
-    def run(self, requirements) -> _T:
-        raise NotImplementedError()
-
-    def map(self, item) -> _T:
-        """Map function to be implemented by subclasses. Defaults to the identity
-        function. Override to provide a custom map function."""
-        raise NotImplementedError()
-
-    def accumulator(self) -> None:
-        """Base accumulator with which the reduce operation is initialized.
-        Override this method to provide a custom accumulator.
-
-        Returns:
-            Base accumulator with which the reduce operation is initialized.
-            Defaults to an empty list."""
-        return None
-
-    def reduce(self, item: _T, accumulator: _T) -> _T:
-        """Reduction function. Defaults to appending in a list. Override to provide a
-        custom reduce function."""
-        return item
-
-    def post(self, acc: _T, requirements=None) -> _T:
-        return self.run(requirements)
