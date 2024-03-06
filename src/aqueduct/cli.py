@@ -18,7 +18,9 @@ import pandas as pd
 import sys
 import xarray as xr
 
-from .artifact import Artifact
+from aqueduct.artifact.composite import CompositeArtifact
+
+from .artifact import Artifact, resolve_artifact_from_spec
 from .backend import resolve_backend_from_spec
 from .config import set_config
 from .config.aqueduct import DefaultAqueductConfigSource
@@ -30,7 +32,7 @@ from .taskresolve import (
     resolve_task_class,
     create_task_index,
 )
-from .task_tree import _map_tasks_in_tree
+from .task_tree import _map_tasks_in_tree, reduce_type_in_tree
 from .util import tasks_in_module
 
 OmegaConfig: TypeAlias = omegaconf.DictConfig | omegaconf.ListConfig
@@ -105,6 +107,7 @@ def run(ns: argparse.Namespace):
     elif ns.dask is not None:
         cfg["aqueduct"]["backend"]["type"] = "dask_graph"
         cfg["aqueduct"]["backend"]["n_workers"] = ns.dask
+
     elif ns.multiprocessing is not None:
         cfg["aqueduct"]["backend"]["type"] = "multiprocessing"
         cfg["aqueduct"]["backend"]["n_workers"] = ns.multiprocessing
@@ -169,14 +172,18 @@ def get_config_sources(
     return config_sources
 
 
-def resolve_config(config_sources: Iterable[ConfigSource]):
+def resolve_config(config_sources: Iterable[ConfigSource]) -> omegaconf.DictConfig:
     cfgs = []
     for config_source in config_sources:
         cfg = config_source()
         omegaconf.OmegaConf.set_struct(cfg, False)
         cfgs.append(cfg)
 
-    return omegaconf.OmegaConf.unsafe_merge(*cfgs)
+    to_return = omegaconf.OmegaConf.unsafe_merge(*cfgs)
+    if not isinstance(to_return, omegaconf.DictConfig):
+        raise RuntimeError("Root configuration must be a dictionary.")
+
+    return to_return
 
 
 def config_cli(ns):
@@ -204,6 +211,53 @@ def config_cli(ns):
     if ns.show:
         cfg = resolve_config(config_sources)
         print(omegaconf.OmegaConf.to_yaml(cfg, resolve=ns.resolve))
+
+
+def flatten_artifact(artifact: Artifact) -> list[Artifact]:
+    if isinstance(artifact, CompositeArtifact):
+        artifacts = []
+        for a in artifact.artifacts:
+            artifacts.extend(flatten_artifact(a))
+
+        return artifacts
+    else:
+        return [artifact]
+
+
+def accumulate_artifacts_of_task(task: AbstractTask, artifacts: list[Artifact]):
+    resolved_artifact = resolve_artifact_from_spec(task.artifact())
+    if resolved_artifact is not None:
+        artifacts.extend(flatten_artifact(resolved_artifact))
+
+    return artifacts
+
+
+def accumulate_artifacts_of_tree(task: AbstractTask):
+    return reduce_type_in_tree(task, AbstractTask, accumulate_artifacts_of_task, [])
+
+
+def del_cli(ns):
+    project_name_to_module_names = resolve_source_modules(ns)
+
+    name2task, name2config_provider = create_task_index(project_name_to_module_names)
+    task_class = name2task[ns.task_name]
+    task_config_source = name2config_provider.get(ns.task_name, None)
+    config_sources = get_config_sources(
+        ns.parameters, ns.overrides, task_class, task_config_source
+    )
+    cfg = resolve_config(config_sources)
+
+    if ns.cfg:
+        print(omegaconf.OmegaConf.to_yaml(cfg, resolve=ns.resolve))
+        return
+
+    set_config(cfg)
+
+    TaskClass = resolve_task_class(ns.task_name)
+    task = TaskClass()
+
+    artifacts = accumulate_artifacts_of_tree(task)
+    print(artifacts)
 
 
 def cli():
@@ -309,6 +363,10 @@ def cli():
         default=[],
     )
     config_parser.set_defaults(func=config_cli)
+
+    del_parser = subparsers.add_parser("del")
+    del_parser.add_argument("root_task", type=str)
+    del_parser.set_defaults(func=del_cli)
 
     ns = parser.parse_args()
 

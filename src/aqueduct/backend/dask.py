@@ -215,7 +215,17 @@ def add_parallel_task_to_dask_graph(
     else:
         root_reduce_key = accumulator_key
 
-    return root_reduce_key, graph
+    post_task_key = f"{base_task_key}_post"
+    graph[post_task_key] = (
+        wrap_task,
+        aqueduct.backend.backend.AQ_CURRENT_BACKEND._spec(),
+        current_cfg,
+        parallel_task.post,
+        root_reduce_key,
+        requirements_key,
+    )
+
+    return post_task_key, graph
 
 
 def add_list_to_dask_graph(

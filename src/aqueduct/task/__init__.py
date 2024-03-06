@@ -20,6 +20,7 @@ from .io_task import IOTask
 from .notebook import NotebookTask
 from .repeater import RepeaterTask
 from .task import Task
+from .parallel_task import ParallelTask
 
 __all__ = [
     "AbstractTask",
@@ -31,4 +32,5 @@ __all__ = [
     "IOTask",
     "NotebookTask",
     "RepeaterTask",
+    "ParallelTask",
 ]

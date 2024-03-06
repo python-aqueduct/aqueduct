@@ -7,9 +7,10 @@ if TYPE_CHECKING:
 
 _A = TypeVar("_A")
 _T = TypeVar("_T")
+_U = TypeVar("_U")
 
 
-class AbstractParallelTask(AbstractTask, Generic[_T, _A]):
+class AbstractParallelTask(AbstractTask, Generic[_T, _A, _U]):
     """A task with a map-reduce interface to allow parallel processing of input items
     some compouting backends. When called, runs something equivalent to
 
@@ -52,8 +53,11 @@ class AbstractParallelTask(AbstractTask, Generic[_T, _A]):
         custom reduce function."""
         raise NotImplementedError()
 
+    def post(self, acc: _A, requirements=None) -> _U:
+        raise NotImplementedError()
 
-class ParallelTask(AbstractParallelTask[_T, list[_T]]):
+
+class ParallelTask(AbstractParallelTask[_T, list[_T], list[_T]]):
     """A default ParallelTask implementation with trivial choices for `items`, `map`,
     `accumulator` and `reduce`."""
 
@@ -86,8 +90,11 @@ class ParallelTask(AbstractParallelTask[_T, list[_T]]):
         custom reduce function."""
         return lhs + rhs
 
+    def post(self, acc: list[_T], requirements=None) -> list[_T]:
+        return acc
 
-class Task(AbstractParallelTask[_T, _T]):
+
+class Task(AbstractParallelTask[_T, _T, _T]):
     """Pose a regular task as a specialized version of a parallel task."""
 
     def items(self, requirements) -> Iterable:
@@ -115,3 +122,6 @@ class Task(AbstractParallelTask[_T, _T]):
         """Reduction function. Defaults to appending in a list. Override to provide a
         custom reduce function."""
         return item
+
+    def post(self, acc: _T, requirements=None) -> _T:
+        return self.run(requirements)

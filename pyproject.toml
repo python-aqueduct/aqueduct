@@ -15,10 +15,19 @@ dependencies = [
     "nbformat",
     "nbconvert",
     "jupyter_client",
+    "tqdm",
 ]
 
 [project.optional-dependencies]
-dev = ["isort", "black", "furo", "myst-parser", "nb-clean", "parquet-tools", "sphinx"]
+dev = [
+    "isort",
+    "black",
+    "furo",
+    "myst-parser",
+    "nb-clean",
+    "parquet-tools",
+    "sphinx",
+]
 
 [tool.black]
 line-length = 88

@@ -65,13 +65,18 @@ class LocalStoreArtifact(LocalFilesystemArtifact):
     configuration option. If that option is not specified, behave exactly as
     :class:`LocalFilesystemArtifact`."""
 
-    def __init__(self, path: PathSpec):
+    def __init__(self, path: PathSpec, scratch: bool = False):
         self.original_path = path
         path = pathlib.Path(path)
+        self.scratch = scratch
 
         if not path.is_absolute():
             cfg = get_aqueduct_config()
-            local_store = cfg.get("local_store", "./")
+
+            if scratch:
+                local_store = cfg.get("scratch_store", "./")
+            else:
+                local_store = cfg.get("local_store", "./")
             path = local_store / path
         else:
             path = path

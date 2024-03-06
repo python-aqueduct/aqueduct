@@ -22,7 +22,9 @@ def execute_task(task: AbstractTask[T], requirements=None) -> T:
             return task()
 
 
-def execute_parallel_task(task: AbstractParallelTask[Any, T], requirements=None) -> T:
+def execute_parallel_task(
+    task: AbstractParallelTask[Any, Any, T], requirements=None
+) -> T:
     accumulator = task.accumulator(requirements)
 
     def map_reduce(item, acc, requirements):
@@ -31,7 +33,7 @@ def execute_parallel_task(task: AbstractParallelTask[Any, T], requirements=None)
     for item in task.items():
         accumulator = map_reduce(item, accumulator, requirements)
 
-    return accumulator
+    return task.post(accumulator)
 
 
 class ImmediateBackend(Backend):

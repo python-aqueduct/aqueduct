@@ -17,5 +17,5 @@ class DefaultAqueductConfigSource:
     def __call__(self):
         # aq_config = omegaconf.OmegaConf.structured(AqueductConfig)
         return omegaconf.OmegaConf.create(
-            {"aqueduct": {"local_store": "./", "backend": "immediate"}}
+            {"aqueduct": {"local_store": "./", "backend": {"type": "immediate"}}}
         )

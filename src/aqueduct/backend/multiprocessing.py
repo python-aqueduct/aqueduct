@@ -26,7 +26,7 @@ def execute_parallel_task(pool, task: AbstractParallelTask, requirements=None):
     ):
         accumulator = task.reduce(mapped_item, accumulator, requirements)
 
-    return accumulator
+    return task.post(accumulator, requirements)
 
 
 def execute_task(pool, task: AbstractTask, requirements=None):
