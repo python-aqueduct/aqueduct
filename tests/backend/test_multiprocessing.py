@@ -34,6 +34,9 @@ class TestMultiprocessingBackend(unittest.TestCase):
     def setUp(self):
         self.backend = MultiprocessingBackend()
 
+    def tearDown(self):
+        self.backend.close()
+
     def test_simple_task(self):
         task = TaskA(5)
         result = self.backend.run(task)
@@ -49,3 +52,4 @@ class TestMultiprocessingBackend(unittest.TestCase):
         task = TaskB()
         result = backend.run(task)
         self.assertEqual(result, 14)
+        backend.close()

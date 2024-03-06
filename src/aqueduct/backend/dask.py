@@ -1,3 +1,4 @@
+import functools
 from typing import (
     Any,
     Callable,
@@ -14,8 +15,10 @@ import omegaconf as oc
 
 from dask.optimization import fuse, inline_functions
 from dask.distributed import Client, LocalCluster
+from aqueduct.artifact.base import resolve_artifact_from_spec
 
 import aqueduct.backend.backend
+from aqueduct.backend.immediate import ImmediateBackend
 
 from ..config import set_config, get_config
 from .backend import Backend
@@ -34,7 +37,7 @@ DaskGraph: TypeAlias = MutableMapping[Hashable, DaskComputation]
 DaskBackendDictSpec: TypeAlias = Mapping[str, int | str]
 
 
-class DaskBackend(Backend):
+class DaskBackend(ImmediateBackend):
     """Execute :class:`Task` on a Dask cluster.
 
     Arguments:
@@ -69,6 +72,9 @@ class DaskBackend(Backend):
     def __str__(self):
         return f"DaskBackend"
 
+    def close(self):
+        self.client.close()
+
 
 def wrap_in_context(
     backend_spec: DaskBackendDictSpec,
@@ -101,13 +107,72 @@ def resolve_client_from_dict_spec(spec: DaskBackendDictSpec):
             raise ValueError("Could not parse Dask backend specification.")
 
 
+def save_and_return(task, result):
+    task.save(result)
+    return result
+
+
 def add_task_to_dask_graph(
     task: AbstractTask, graph: DaskGraph, ignore_cache: bool = False
 ) -> tuple[str, DaskGraph]:
+    # Check if task is already in graph.
     task_key = task._unique_key()
-
     if task_key in graph:
         return task_key, graph
+
+    # Prepare context.
+    if aqueduct.backend.backend.AQ_CURRENT_BACKEND is None:
+        raise RuntimeError("No backend set.")
+
+    current_cfg = get_config()
+
+    # Check if the artifact exists and computation is needed.
+    artifact_spec = task.artifact()
+    force_run = getattr(task, "_aq_force_root", False)
+
+    artifact = resolve_artifact_from_spec(artifact_spec)
+    if artifact is not None and artifact.exists() and not force_run:
+        # The task was in cache, we can just load it.
+        _logger.info(f"Loading result of {task} from {artifact}")
+        graph[task_key] = (
+            wrap_in_context,
+            aqueduct.backend.backend.AQ_CURRENT_BACKEND._spec(),
+            current_cfg,
+            task.load,
+        )
+        final_key = task_key
+
+    else:
+        # We need to execute the task.
+        if isinstance(task, Task):
+            task_key, graph = add_single_task_to_dask_graph(
+                task, graph, ignore_cache=ignore_cache
+            )
+        elif isinstance(task, AbstractMapReduceTask):
+            task_key, graph = add_parallel_task_to_dask_graph(
+                task, graph, ignore_cache=ignore_cache
+            )
+        else:
+            raise RuntimeError("Unhandled type when adding task to dask graph.")
+
+        if artifact is not None and task._ALLOW_SAVE:
+            # Put a new task in front of the original, which saves the result before returning it.
+            final_key = task_key + "_save_and_return"
+            graph[final_key] = (
+                wrap_in_context,
+                aqueduct.backend.backend.AQ_CURRENT_BACKEND._spec(),
+                current_cfg,
+                functools.partial(save_and_return, task),
+                task_key,
+            )
+        else:
+            final_key = task_key
+
+    return final_key, graph
+
+
+def add_single_task_to_dask_graph(task: Task, graph, ignore_cache=False):
+    task_key = task._unique_key()
 
     requirements = task._resolve_requirements(ignore_cache=ignore_cache)
 
@@ -272,12 +337,8 @@ def add_work_to_dask_graph(
     work: TaskTree, graph: DaskGraph, ignore_cache: bool = False
 ) -> tuple[DaskComputation, DaskGraph]:
 
-    if isinstance(work, Task):
+    if isinstance(work, AbstractTask):
         computation, graph = add_task_to_dask_graph(
-            work, graph, ignore_cache=ignore_cache
-        )
-    elif isinstance(work, AbstractMapReduceTask):
-        computation, graph = add_parallel_task_to_dask_graph(
             work, graph, ignore_cache=ignore_cache
         )
     elif isinstance(work, list):

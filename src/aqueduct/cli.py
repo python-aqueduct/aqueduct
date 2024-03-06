@@ -101,11 +101,11 @@ def run(ns: argparse.Namespace):
         cfg["aqueduct"]["backend"]["n_workers"] = ns.concurrent
 
     elif ns.dask_url is not None:
-        cfg["aqueduct"]["backend"]["type"] = "dask_graph"
+        cfg["aqueduct"]["backend"]["type"] = "dask"
         cfg["aqueduct"]["backend"]["address"] = ns.dask_url
 
     elif ns.dask is not None:
-        cfg["aqueduct"]["backend"]["type"] = "dask_graph"
+        cfg["aqueduct"]["backend"]["type"] = "dask"
         cfg["aqueduct"]["backend"]["n_workers"] = ns.dask
 
     elif ns.multiprocessing is not None:
@@ -126,29 +126,32 @@ def run(ns: argparse.Namespace):
         return
 
     backend = resolve_backend_from_spec(cfg.aqueduct.backend)
-    logger.info(f"Using backend {backend}.")
+    try:
+        logger.info(f"Using backend {backend}.")
 
-    logger.info(f"Running task {task.__class__.__qualname__}")
+        logger.info(f"Running task {task.__class__.__qualname__}")
 
-    if ns.force_root:
-        task.set_force_root(True)
+        if ns.force_root:
+            task.set_force_root(True)
 
-    result = backend.run(task)
+        result = backend.run(task)
 
-    if ns.ipython:
-        import IPython
+        if ns.ipython:
+            import IPython
 
-        header = "\n".join(
-            [
-                "Available variables",
-                "   result: The value returned by the task.",
-                "   task: The task object.",
-            ]
-        )
-        IPython.embed(header=header)
-    else:
-        if isinstance(result, (pd.DataFrame, xr.Dataset, Artifact)):
-            print(result)
+            header = "\n".join(
+                [
+                    "Available variables",
+                    "   result: The value returned by the task.",
+                    "   task: The task object.",
+                ]
+            )
+            IPython.embed(header=header)
+        else:
+            if isinstance(result, (pd.DataFrame, xr.Dataset, Artifact)):
+                print(result)
+    finally:
+        backend.close()
 
 
 def get_config_sources(

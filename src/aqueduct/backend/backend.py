@@ -25,3 +25,6 @@ class Backend(abc.ABC):
     @abc.abstractmethod
     def _spec(self) -> "BackendSpec":
         raise NotImplementedError("Backend must implement BackendSpec")
+
+    def close(self):
+        pass

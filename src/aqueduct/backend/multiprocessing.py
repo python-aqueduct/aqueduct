@@ -1,13 +1,15 @@
-from typing import TypedDict, Literal
+from typing import TypedDict, Literal, Any, TypeVar
 
 import functools
 import multiprocessing
 
 from . import Backend
 from ..task import AbstractTask, Task
-from ..task.mapreduce import AbstractMapReduceTask
+from ..task.mapreduce import AbstractMapReduceTask, MapReduceTask
 from ..task_tree import TaskTree, _resolve_task_tree
-from .immediate import execute_task
+from .immediate import ImmediateBackend, execute_task
+
+_T = TypeVar("_T")
 
 
 class MultiprocessingBackendDictSpec(TypedDict):
@@ -39,20 +41,22 @@ def execution_dispatch(pool, task: AbstractTask, requirements=None):
         raise RuntimeError("Unhandled task type.")
 
 
-class MultiprocessingBackend(Backend):
+class MultiprocessingBackend(ImmediateBackend):
     """Computing backend based on the `multiprocessing` module. It only parallelizes
     execution of :class:`ParallelTask` instances. For other tasks, it behaves like the
     :class:`ImmediateBackend`."""
 
     def __init__(self, n_workers=None):
         self.n_workers = n_workers
+        self.pool = multiprocessing.Pool(processes=self.n_workers)
 
-    def _run(self, work: TaskTree):
-        with multiprocessing.Pool(processes=self.n_workers) as pool:
-            resolve_fn = functools.partial(execution_dispatch, pool)
-            result = _resolve_task_tree(work, resolve_fn)
-
-        return result
+    def execute_map_reduce_task(
+        self, task: AbstractMapReduceTask[Any, Any, _T], requirements=None
+    ) -> _T:
+        return execute_parallel_task(self.pool, task, requirements)
 
     def _spec(self):
         return {"type": "multiprocessing", "n_workers": self.n_workers}
+
+    def close(self):
+        self.pool.close()
