@@ -7,6 +7,7 @@ from .backend import Backend
 from .immediate import ImmediateBackend, ImmediateBackendDictSpec
 from .concurrent import ConcurrentBackend, ConcurrentBackendDictSpec
 from .dask import DaskBackend, DaskBackendDictSpec, resolve_dask_backend_dict_spec
+from .multiprocessing import MultiprocessingBackend, MultiprocessingBackendDictSpec
 
 from ..config import get_aqueduct_config
 
@@ -15,13 +16,14 @@ NAMES_OF_BACKENDS = {
     "immediate": ImmediateBackend,
     "concurrent": ConcurrentBackend,
     "dask": DaskBackend,
+    "multiprocessing": MultiprocessingBackend,
 }
 
 
 BackendDictSpec: TypeAlias = Mapping[str, int | str]
 
 BackendSpec: TypeAlias = (
-    Literal["immediate", "concurrent", "dask", "dask_graph"]
+    Literal["immediate", "concurrent", "dask", "dask_graph", "multiprocessing"]
     | Backend
     | BackendDictSpec
     | None
@@ -54,6 +56,8 @@ def resolve_dict_backend_spec(spec: BackendDictSpec) -> Backend:
         return ConcurrentBackend(n_workers=int(spec["n_workers"]))
     elif spec["type"] == "immediate":
         return ImmediateBackend()
+    elif spec["type"] == "multiprocessing":
+        return MultiprocessingBackend(n_workers=int(spec["n_workers"]))
     else:
         raise KeyError("Unrecognized backend spec")
 

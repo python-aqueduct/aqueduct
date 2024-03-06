@@ -152,6 +152,12 @@ def add_parallel_task_to_dask_graph(
     else:
         requirements_key = None
 
+    # Define a map_reduce function to avoid adding unnecessary complexity to the graph.
+    def map_reduce(item, acc, requirements):
+        return parallel_task.reduce(
+            parallel_task.map(item, requirements), acc, requirements
+        )
+
     # Gather task context.
     base_task_key = parallel_task._unique_key()
     current_cfg = get_config()
@@ -164,15 +170,6 @@ def add_parallel_task_to_dask_graph(
     items_list = list(parallel_task.items())
     for idx, item in enumerate(items_list):
         reduce_task_key = f"{base_task_key}_reduce_{idx}"
-
-        map_work_unit = (
-            wrap_task,
-            aqueduct.backend.backend.AQ_CURRENT_BACKEND._spec(),
-            current_cfg,
-            parallel_task.map,
-            item,
-            requirements_key,
-        )
 
         # We use a binary tree to make a balanced reduce.
         left_child_idx = idx * 2 + 1
@@ -199,23 +196,13 @@ def add_parallel_task_to_dask_graph(
             requirements_key,
         )
 
-        # Perform map on current node.
-        map_work_unit = (
-            wrap_task,
-            aqueduct.backend.backend.AQ_CURRENT_BACKEND._spec(),
-            current_cfg,
-            parallel_task.map,
-            item,
-            requirements_key,
-        )
-
         # Add reduce of children with map of current node.
         self_reduce_work_unit = (
             wrap_task,
             aqueduct.backend.backend.AQ_CURRENT_BACKEND._spec(),
             current_cfg,
-            parallel_task.reduce,
-            map_work_unit,
+            map_reduce,
+            item,
             children_reduce_work_unit,
             requirements_key,
         )

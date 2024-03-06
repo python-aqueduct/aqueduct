@@ -34,6 +34,11 @@ class NoItemsTask(TaskA):
         return []
 
 
+class OneItemTask(TaskA):
+    def items(self):
+        return [1]
+
+
 class TestDaskParallelTask(unittest.TestCase):
     def setUp(self) -> None:
         self.backend = DaskBackend()
@@ -47,3 +52,8 @@ class TestDaskParallelTask(unittest.TestCase):
         task = NoItemsTask()
         result = self.backend.run(task)
         self.assertEqual(result, 0)
+
+    def test_one_item(self):
+        task = OneItemTask()
+        result = self.backend.run(task)
+        self.assertEqual(result, 1)

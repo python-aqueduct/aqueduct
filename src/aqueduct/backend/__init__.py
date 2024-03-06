@@ -8,6 +8,7 @@ from ..config import get_aqueduct_config
 from .concurrent import ConcurrentBackend
 from .dask import DaskBackend
 from .immediate import ImmediateBackend
+from .multiprocessing import MultiprocessingBackend
 from .base import resolve_backend_from_spec, BackendSpec, get_default_backend
 
 
@@ -19,4 +20,5 @@ __all__ = [
     "BackendSpec",
     "Backend",
     "get_default_backend",
+    "MultiprocessingBackend",
 ]

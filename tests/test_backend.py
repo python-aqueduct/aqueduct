@@ -7,7 +7,7 @@ from aqueduct.backend import (
 )
 from aqueduct.config import set_config
 from aqueduct.task import Task
-from aqueduct.task.parallel_task import ParallelTask
+from aqueduct.task.parallel_task import TaskC
 
 
 class TestBackendResolution(unittest.TestCase):
@@ -45,7 +45,7 @@ class TaskA(Task[int]):
         return 2
 
 
-class ParallelTask(ParallelTask):
+class TaskC(TaskC):
     def requirements(self):
         return TaskA()
 
@@ -87,7 +87,7 @@ class TestImmediateBackend(unittest.TestCase):
         self.assertEqual(self.backend.run(t), 4)
 
     def test_run_parallel_task(self):
-        t = ParallelTask()
+        t = TaskC()
 
         self.assertListEqual(self.backend.run(t), [3, 6, 11])
 

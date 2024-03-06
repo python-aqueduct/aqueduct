@@ -105,6 +105,9 @@ def run(ns: argparse.Namespace):
     elif ns.dask is not None:
         cfg["aqueduct"]["backend"]["type"] = "dask_graph"
         cfg["aqueduct"]["backend"]["n_workers"] = ns.dask
+    elif ns.multiprocessing is not None:
+        cfg["aqueduct"]["backend"]["type"] = "multiprocessing"
+        cfg["aqueduct"]["backend"]["n_workers"] = ns.multiprocessing
 
     if ns.cfg:
         print(omegaconf.OmegaConf.to_yaml(cfg, resolve=ns.resolve))
@@ -253,6 +256,7 @@ def cli():
     backend_group.add_argument("--concurrent", type=int, default=None)
     backend_group.add_argument("--dask-url", type=str, default=None)
     backend_group.add_argument("--dask", type=int, default=None)
+    backend_group.add_argument("--multiprocessing", type=int, default=None)
 
     run_parser_diagnostics_group = run_parser.add_mutually_exclusive_group()
     run_parser_diagnostics_group.add_argument(

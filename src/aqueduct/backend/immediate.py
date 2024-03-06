@@ -24,9 +24,12 @@ def execute_task(task: AbstractTask[T], requirements=None) -> T:
 
 def execute_parallel_task(task: AbstractParallelTask[Any, T], requirements=None) -> T:
     accumulator = task.accumulator(requirements)
+
+    def map_reduce(item, acc, requirements):
+        return task.reduce(task.map(item, requirements), acc, requirements)
+
     for item in task.items():
-        mapped_item = task.map(item, requirements)
-        accumulator = task.reduce(accumulator, mapped_item, requirements)
+        accumulator = map_reduce(item, accumulator, requirements)
 
     return accumulator
 
