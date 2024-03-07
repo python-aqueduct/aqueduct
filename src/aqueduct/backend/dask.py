@@ -17,11 +17,9 @@ from dask.optimization import fuse, inline_functions
 from dask.distributed import Client, LocalCluster
 from aqueduct.artifact.base import resolve_artifact_from_spec
 
-import aqueduct.backend.backend
 from aqueduct.backend.immediate import ImmediateBackend
 
 from ..config import set_config, get_config
-from .backend import Backend
 from ..task import AbstractTask
 from ..task.task import Task
 from ..task.mapreduce import AbstractMapReduceTask
@@ -77,15 +75,11 @@ class DaskBackend(ImmediateBackend):
 
 
 def wrap_in_context(
-    backend_spec: DaskBackendDictSpec,
     cfg: oc.DictConfig,
     fn: Callable,
     *args,
     **kwargs,
 ):
-    aqueduct.backend.backend.AQ_CURRENT_BACKEND = resolve_dask_backend_dict_spec(
-        backend_spec
-    )
     set_config(cfg)
     return fn(*args, **kwargs)
 
@@ -121,9 +115,6 @@ def add_task_to_dask_graph(
         return task_key, graph
 
     # Prepare context.
-    if aqueduct.backend.backend.AQ_CURRENT_BACKEND is None:
-        raise RuntimeError("No backend set.")
-
     current_cfg = get_config()
 
     # Check if the artifact exists and computation is needed.
@@ -136,7 +127,6 @@ def add_task_to_dask_graph(
         _logger.info(f"Loading result of {task} from {artifact}")
         graph[task_key] = (
             wrap_in_context,
-            aqueduct.backend.backend.AQ_CURRENT_BACKEND._spec(),
             current_cfg,
             task.load,
         )
@@ -155,12 +145,11 @@ def add_task_to_dask_graph(
         else:
             raise RuntimeError("Unhandled type when adding task to dask graph.")
 
-        if artifact is not None and task._ALLOW_SAVE:
+        if artifact is not None and task.AQ_AUTOSAVE:
             # Put a new task in front of the original, which saves the result before returning it.
             final_key = task_key + "_save_and_return"
             graph[final_key] = (
                 wrap_in_context,
-                aqueduct.backend.backend.AQ_CURRENT_BACKEND._spec(),
                 current_cfg,
                 functools.partial(save_and_return, task),
                 task_key,
@@ -178,13 +167,9 @@ def add_single_task_to_dask_graph(task: Task, graph, ignore_cache=False):
 
     current_cfg = get_config()
 
-    if aqueduct.backend.backend.AQ_CURRENT_BACKEND is None:
-        raise RuntimeError("No backend set.")
-
     if requirements is None:
         graph[task_key] = (
             wrap_in_context,
-            aqueduct.backend.backend.AQ_CURRENT_BACKEND._spec(),
             current_cfg,
             task,
         )
@@ -194,7 +179,6 @@ def add_single_task_to_dask_graph(task: Task, graph, ignore_cache=False):
         )
         graph[task_key] = (
             wrap_in_context,
-            aqueduct.backend.backend.AQ_CURRENT_BACKEND._spec(),
             current_cfg,
             task,
             computation,
@@ -207,9 +191,6 @@ def add_parallel_task_to_dask_graph(
     parallel_task: AbstractMapReduceTask, graph, ignore_cache=False
 ):
     """Expand all the work in a parallel task and add it to the graph."""
-    if aqueduct.backend.backend.AQ_CURRENT_BACKEND is None:
-        raise RuntimeError("No backend set.")
-
     # Resolve requirements.
     requirements = parallel_task._resolve_requirements(ignore_cache=ignore_cache)
     if requirements is not None:
@@ -255,7 +236,6 @@ def add_parallel_task_to_dask_graph(
         # Add children together.
         children_reduce_work_unit = (
             wrap_in_context,
-            aqueduct.backend.backend.AQ_CURRENT_BACKEND._spec(),
             current_cfg,
             parallel_task.reduce,
             left_child_key,
@@ -266,7 +246,6 @@ def add_parallel_task_to_dask_graph(
         # Add reduce of children with map of current node.
         self_reduce_work_unit = (
             wrap_in_context,
-            aqueduct.backend.backend.AQ_CURRENT_BACKEND._spec(),
             current_cfg,
             map_reduce,
             item,
@@ -285,7 +264,6 @@ def add_parallel_task_to_dask_graph(
     post_task_key = f"{base_task_key}"
     graph[post_task_key] = (
         wrap_in_context,
-        aqueduct.backend.backend.AQ_CURRENT_BACKEND._spec(),
         current_cfg,
         parallel_task.post,
         root_reduce_key,

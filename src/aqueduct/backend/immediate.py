@@ -69,7 +69,7 @@ class ImmediateBackend(Backend):
             raise RuntimeError("Unhandled task type.")
 
         # Save task.
-        if task._ALLOW_SAVE and task_result is not None:
+        if task.AQ_AUTOSAVE and task_result is not None:
             _logger.info(f"Saving result of {task} to {artifact}")
             task.save(task_result)
 

@@ -14,13 +14,12 @@ from aqueduct.artifact import (
 )
 from aqueduct.config import set_config, resolve_config_from_spec
 from aqueduct.task import (
-    IOTask,
     Task,
     AggregateTask,
 )
 
 from aqueduct.task.autoresolve import fetch_args_from_config
-from aqueduct.task.task import resolve_writer
+from aqueduct.task.autostore import resolve_writer
 from aqueduct.base import run
 from aqueduct import apply
 
@@ -128,7 +127,9 @@ class TestFetchArgsOnCall(unittest.TestCase):
 store = {}
 
 
-class StoringTask(IOTask):
+class StoringTask(Task):
+    AQ_AUTOSAVE = False
+
     def __init__(self, should_succeed=True):
         self.succeed = should_succeed
 

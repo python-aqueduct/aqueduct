@@ -4,7 +4,7 @@ from .artifact import Artifact
 
 
 class CompositeArtifact(Artifact):
-    """Merge multiple artifacts together. Useful if an :class:`IOTask` wants to store
+    """Merge multiple artifacts together. Useful if a Task wants to store
     many files."""
 
     def __init__(self, artifacts: Sequence[Artifact]):

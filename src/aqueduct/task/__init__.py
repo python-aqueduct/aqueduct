@@ -9,14 +9,13 @@ four main features:
 - A `CONFIG` variable that describes how to fetch the configuration options of the task.
 
 The two concrete types of tasks which you should subclass are :class:`Task` and
-:class:`IOTask`."""
+:class:`MapReduceTask`."""
 
 from .abstract_task import AbstractTask
 from .aggregate import AggregateTask
 from .apply import apply
 from .extract_artifact import as_artifact
 from .inline import inline
-from .io_task import IOTask
 from .task import Task
 from .notebook import NotebookTask
 from .repeater import RepeaterTask
@@ -29,7 +28,6 @@ __all__ = [
     "as_artifact",
     "Task",
     "inline",
-    "IOTask",
     "NotebookTask",
     "RepeaterTask",
     "MapReduceTask",

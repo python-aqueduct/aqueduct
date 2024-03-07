@@ -9,7 +9,7 @@ from ..task_tree import _map_tasks_in_tree
 
 
 class AggregateTask(Task):
-    _ALLOW_SAVE = False
+    AQ_AUTOSAVE = False
 
     def artifact(self) -> Optional[CompositeArtifact]:
         artifacts = []

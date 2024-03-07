@@ -4,13 +4,12 @@ import tqdm
 import pathlib
 
 from ..artifact import LocalStoreArtifact
-from .io_task import IOTask
-
+from ..task import Task
 
 logger = logging.getLogger(__name__)
 
 
-class DownloadFile(IOTask):
+class DownloadFile(Task):
     CHUNK_SIZE = 10 * 1024
 
     def __init__(self, url, target):

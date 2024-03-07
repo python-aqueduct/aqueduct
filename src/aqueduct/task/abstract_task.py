@@ -33,10 +33,11 @@ _logger = logging.getLogger(__name__)
 
 class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
     """Base class for a all Tasks. In most cases you don't have to subclass this
-    directly. Subclass either :class:`IOTask` of :class:`Task` to define your own Task.
+    directly. Subclass either :class:`MapReduceTask` of :class:`Task` to define your own Task.
     """
 
-    _ALLOW_SAVE = True
+    AQ_AUTOSAVE = True
+    """If `True`, the result of the task is automatically stored in the artifact."""
 
     CONFIG: ConfigSpec = None
     """The configuration of the Task class. It specifies how the `config` method should

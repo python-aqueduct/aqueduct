@@ -25,11 +25,3 @@ Configuration
 can be cumbersome to provide all arguments to build the task every time
 
 See :ref:`Configuration` for more details.
-
-
-IOTask
-------
-
-sometimes task perform side effect manipulations (moving files around, etc)
-sometimes do not wish to load it to memory
-

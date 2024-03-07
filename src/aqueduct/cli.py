@@ -10,10 +10,10 @@ from typing import (
 )
 
 import argparse
-import importlib.metadata
 import inspect
 import logging
 import omegaconf
+import os
 import pandas as pd
 import sys
 import xarray as xr
@@ -227,26 +227,48 @@ def flatten_artifact(artifact: Artifact) -> list[Artifact]:
         return [artifact]
 
 
-def accumulate_artifacts_of_task(task: AbstractTask, artifacts: list[Artifact]):
-    resolved_artifact = resolve_artifact_from_spec(task.artifact())
-    if resolved_artifact is not None:
-        artifacts.extend(flatten_artifact(resolved_artifact))
+def accumulate_artifacts_of_tree(
+    tree,
+    artifacts: list[tuple[AbstractTask, Artifact]],
+    below: Optional[Type[AbstractTask]] = None,
+):
+    """Expand a task tree and gather all its artifacts in a list.
+    Args:
+        tree: The task tree to expand.
+        artifacts: The list of artifacts to accumulate.
+        below: If specified, only accumulate artifacts of tasks that are of this type or below it in the task tree.
 
-    return artifacts
+    Returns:
+        A list of of tuples (task, artifact)."""
 
+    def accumulate_artifacts_of_task(
+        task: AbstractTask,
+        artifacts: list[tuple[AbstractTask, Artifact]],
+    ):
+        if below is None or not isinstance(task, below):
+            # Expand requirements of that task because it is not of type below.
+            reqs = task._resolve_requirements(ignore_cache=True)
+            artifacts = accumulate_artifacts_of_tree(reqs, artifacts, below=below)
 
-def accumulate_artifacts_of_tree(task: AbstractTask):
-    return reduce_type_in_tree(task, AbstractTask, accumulate_artifacts_of_task, [])
+        resolved_artifact = resolve_artifact_from_spec(task.artifact())
+        if resolved_artifact is not None:
+            artifacts.extend([(task, x) for x in flatten_artifact(resolved_artifact)])
+
+        return artifacts
+
+    return reduce_type_in_tree(
+        tree, AbstractTask, accumulate_artifacts_of_task, artifacts
+    )
 
 
 def del_cli(ns):
     project_name_to_module_names = resolve_source_modules(ns)
 
     name2task, name2config_provider = create_task_index(project_name_to_module_names)
-    task_class = name2task[ns.task_name]
-    task_config_source = name2config_provider.get(ns.task_name, None)
+    task_class = name2task[ns.root_task]
+    task_config_source = name2config_provider.get(ns.root_task, None)
     config_sources = get_config_sources(
-        ns.parameters, ns.overrides, task_class, task_config_source
+        ns.parameters, [], task_class, task_config_source
     )
     cfg = resolve_config(config_sources)
 
@@ -256,11 +278,44 @@ def del_cli(ns):
 
     set_config(cfg)
 
-    TaskClass = resolve_task_class(ns.task_name)
+    TaskClass = resolve_task_class(ns.root_task)
     task = TaskClass()
 
-    artifacts = accumulate_artifacts_of_tree(task)
-    print(artifacts)
+    BelowClass = resolve_task_class(ns.below) if ns.below is not None else None
+    breakpoint()
+
+    artifacts = accumulate_artifacts_of_tree(task, [], below=BelowClass)
+
+    # Group the artifacts by task.
+    artifacts_by_task = {}
+    for task, artifact in artifacts:
+        if task not in artifacts_by_task:
+            artifacts_by_task[task] = []
+
+        if artifact.exists():
+            artifacts_by_task[task].append(artifact)
+
+    n_artifacts = sum([len(x) for x in artifacts_by_task.values()])
+
+    if n_artifacts == 0:
+        print(f"No artifacts found for task {task.task_name()}.")
+        return
+    else:
+        print(f"Will delete {n_artifacts} artifacts:")
+        for task in artifacts_by_task:
+            print(f"    {task.task_name()} ({len(artifacts_by_task[task])})")
+
+            for artifact in artifacts_by_task[task]:
+                print(f"        {artifact.path}")
+
+        confirmation = input("Continue? (Y/n) ")
+        if confirmation.lower() != "y":
+            return
+
+        for task in artifacts_by_task:
+            for artifact in artifacts_by_task[task]:
+                print(f"Removing {artifact.path}.")
+                os.unlink(artifact.path)
 
 
 def cli():
@@ -369,6 +424,27 @@ def cli():
 
     del_parser = subparsers.add_parser("del")
     del_parser.add_argument("root_task", type=str)
+    del_parser.add_argument(
+        "parameters",
+        nargs="*",
+        type=str,
+        help="Overrides to apply to the task.",
+        default=[],
+    )
+    del_parser.add_argument(
+        "--below",
+        type=str,
+        help="Specify a task name. Only delete artifacts of itself and its children. If not specified, delete all artifacts of the task tree.",
+        default=None,
+    )
+    del_parser.add_argument(
+        "--cfg", action="store_true", help="Print config and return."
+    )
+    del_parser.add_argument(
+        "--resolve",
+        action="store_true",
+        help="Fully resolve the config values before printing.",
+    )
     del_parser.set_defaults(func=del_cli)
 
     ns = parser.parse_args()
