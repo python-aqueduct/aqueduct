@@ -9,7 +9,6 @@ from .backend import ImmediateBackend, ConcurrentBackend, DaskBackend
 from .base import run
 from .config import set_config, get_config
 from .task import (
-    IOTask,
     Task,
     AggregateTask,
     NotebookTask,
@@ -37,7 +36,6 @@ __all__ = [
     "get_config",
     "ImmediateBackend",
     "inline",
-    "IOTask",
     "LocalFilesystemArtifact",
     "LocalStoreArtifact",
     "notebook",

@@ -12,7 +12,11 @@ _logger = logging.getLogger(__name__)
 
 def create_task_index(
     project_name_to_module_names: Mapping[str, Iterable[str]]
-) -> tuple[Mapping[str, Type[AbstractTask]], Mapping[str, ConfigSource]]:
+) -> tuple[
+    Mapping[str, Type[AbstractTask]],
+    Mapping[str, ConfigSource],
+    Mapping[Type[AbstractTask], str],
+]:
     """Build various indexes for extension modules so that we can recover tasks and
     their configurations."""
     project_of_module_name = {
@@ -48,7 +52,7 @@ def create_task_index(
         for n in task_class_of_name
     }
 
-    return task_class_of_name, config_provider_of_name
+    return task_class_of_name, config_provider_of_name, module_name_of_task_class
 
 
 def get_modules_from_extensions() -> Mapping[str, Sequence[str]]:

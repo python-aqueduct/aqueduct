@@ -20,20 +20,21 @@ import xarray as xr
 
 from aqueduct.artifact.composite import CompositeArtifact
 
-from .artifact import Artifact, resolve_artifact_from_spec
-from .backend import resolve_backend_from_spec
-from .config import set_config
-from .config.aqueduct import DefaultAqueductConfigSource
-from .config.configsource import DotListConfigSource, ConfigSource
-from .config.taskargs import TaskArgsConfigSource
-from .task import AbstractTask
-from .taskresolve import (
+from ..artifact import Artifact, resolve_artifact_from_spec
+from ..backend import resolve_backend_from_spec
+from ..config import set_config
+from ..config.aqueduct import DefaultAqueductConfigSource
+from ..config.configsource import DotListConfigSource, ConfigSource
+from ..config.taskargs import TaskArgsConfigSource
+from ..task import AbstractTask
+from ..taskresolve import (
     get_modules_from_extensions,
     resolve_task_class,
     create_task_index,
 )
-from .task_tree import _map_tasks_in_tree, reduce_type_in_tree
-from .util import tasks_in_module
+from .tasklang import parse_task_spec
+from ..task_tree import _map_tasks_in_tree, reduce_type_in_tree
+from ..util import tasks_in_module
 
 OmegaConfig: TypeAlias = omegaconf.DictConfig | omegaconf.ListConfig
 
@@ -88,11 +89,15 @@ def print_task_tree(task: AbstractTask, ignore_cache=False):
 def run(ns: argparse.Namespace):
     project_name_to_module_names = resolve_source_modules(ns)
 
-    name2task, name2config_provider = create_task_index(project_name_to_module_names)
-    task_class = name2task[ns.task_name]
-    task_config_source = name2config_provider.get(ns.task_name, None)
+    name2task, name2config_provider, task_class2module_name = create_task_index(
+        project_name_to_module_names
+    )
+
+    root_task = parse_task_spec(ns.task_name, name2task, task_class2module_name)
+    task_class = root_task.__class__
+    task_config_source = name2config_provider.get(root_task.task_name(), None)
     config_sources = get_config_sources(
-        ns.parameters, ns.overrides, task_class, task_config_source
+        [], ns.overrides, task_class, task_config_source
     )
     cfg = resolve_config(config_sources)
 
@@ -118,23 +123,20 @@ def run(ns: argparse.Namespace):
 
     set_config(cfg)
 
-    TaskClass = resolve_task_class(ns.task_name)
-    task = TaskClass()
-
     if ns.tree:
-        print_task_tree(task)
+        print_task_tree(root_task)
         return
 
     backend = resolve_backend_from_spec(cfg.aqueduct.backend)
     try:
         logger.info(f"Using backend {backend}.")
 
-        logger.info(f"Running task {task.__class__.__qualname__}")
+        logger.info(f"Running task {root_task.__class__.__qualname__}")
 
         if ns.force_root:
-            task.set_force_root(True)
+            root_task.set_force_root(True)
 
-        result = backend.run(task)
+        result = backend.run(root_task)
 
         if ns.ipython:
             import IPython
@@ -191,7 +193,7 @@ def resolve_config(config_sources: Iterable[ConfigSource]) -> omegaconf.DictConf
 
 def config_cli(ns):
     source_modules = resolve_source_modules(ns)
-    name2task, name2config_source = create_task_index(source_modules)
+    name2task, name2config_source, _ = create_task_index(source_modules)
 
     config_sources = get_config_sources(
         ns.parameters,
@@ -264,12 +266,14 @@ def accumulate_artifacts_of_tree(
 def del_cli(ns):
     project_name_to_module_names = resolve_source_modules(ns)
 
-    name2task, name2config_provider = create_task_index(project_name_to_module_names)
-    task_class = name2task[ns.root_task]
-    task_config_source = name2config_provider.get(ns.root_task, None)
-    config_sources = get_config_sources(
-        ns.parameters, [], task_class, task_config_source
+    name2task, name2config_provider, task_class2module_name = create_task_index(
+        project_name_to_module_names
     )
+
+    root_task = parse_task_spec(ns.root_task, name2task, task_class2module_name)
+
+    task_config_source = name2config_provider.get(root_task.task_name(), None)
+    config_sources = get_config_sources([], [], root_task.__class__, task_config_source)
     cfg = resolve_config(config_sources)
 
     if ns.cfg:
@@ -278,13 +282,9 @@ def del_cli(ns):
 
     set_config(cfg)
 
-    TaskClass = resolve_task_class(ns.root_task)
-    task = TaskClass()
-
     BelowClass = resolve_task_class(ns.below) if ns.below is not None else None
-    breakpoint()
 
-    artifacts = accumulate_artifacts_of_tree(task, [], below=BelowClass)
+    artifacts = accumulate_artifacts_of_tree(root_task, [], below=BelowClass)
 
     # Group the artifacts by task.
     artifacts_by_task = {}
@@ -424,13 +424,6 @@ def cli():
 
     del_parser = subparsers.add_parser("del")
     del_parser.add_argument("root_task", type=str)
-    del_parser.add_argument(
-        "parameters",
-        nargs="*",
-        type=str,
-        help="Overrides to apply to the task.",
-        default=[],
-    )
     del_parser.add_argument(
         "--below",
         type=str,

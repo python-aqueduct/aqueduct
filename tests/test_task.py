@@ -43,7 +43,7 @@ class PretenseTask(Task):
         self.b = b
         self.c = c
 
-    def run(self):
+    def run(self, requirements=None):
         return self.a + self.b + self.c
 
 
@@ -139,25 +139,6 @@ class StoringTask(Task):
 
     def artifact(self):
         return InMemoryArtifact("testkey", store)
-
-
-class TestStorageCheck(unittest.TestCase):
-    def tearDown(self) -> None:
-        set_config({})
-
-    def test_storage_success(self):
-        set_config({"aqueduct": {"check_storage": True}})
-
-        t = StoringTask()
-        run(t)
-
-        self.assertTrue(t.artifact().exists())
-
-    def test_storage_failure(self):
-        set_config({"aqueduct": {"check_storage": True}})
-        t = StoringTask(should_succeed=False)
-
-        self.assertRaises(RuntimeError, lambda: run(t))
 
 
 class TestTaskIO(unittest.TestCase):

@@ -11,6 +11,7 @@ dependencies = [
     "distributed",
     "hydra-core",
     "ipykernel",
+    "lark",
     "omegaconf",
     "nbformat",
     "nbconvert",
@@ -35,7 +36,7 @@ line-length = 88
 target-version = ['py311']
 
 [project.scripts]
-aq = "aqueduct.cli:cli"
+aq = "aqueduct.cli.cli:cli"
 
 [tool.pytest.ini_options]
 pythonpath = "src"
