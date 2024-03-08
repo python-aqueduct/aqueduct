@@ -93,7 +93,7 @@ def run(ns: argparse.Namespace):
         project_name_to_module_names
     )
 
-    root_task = parse_task_spec(ns.task_name, name2task, task_class2module_name)
+    root_task = parse_task_spec(ns.task_name, name2task)
     task_class = root_task.__class__
     task_config_source = name2config_provider.get(root_task.task_name(), None)
     config_sources = get_config_sources(
@@ -270,7 +270,7 @@ def del_cli(ns):
         project_name_to_module_names
     )
 
-    root_task = parse_task_spec(ns.root_task, name2task, task_class2module_name)
+    root_task = parse_task_spec(ns.root_task, name2task)
 
     task_config_source = name2config_provider.get(root_task.task_name(), None)
     config_sources = get_config_sources([], [], root_task.__class__, task_config_source)

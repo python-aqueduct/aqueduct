@@ -40,4 +40,4 @@ class TestParser(unittest.TestCase):
         task = parse_task_spec("TaskC(value=3)", self.task_name_to_task_class)
         self.assertIsInstance(task, TaskC)
 
-        self.assertEqual(task.value, 3)
+        self.assertEqual(task.value, 3) # type: ignore

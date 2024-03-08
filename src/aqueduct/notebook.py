@@ -43,15 +43,6 @@ def get_task(*args, **kwargs) -> AbstractTask:
     return AQ_INJECTED_TASK
 
 
-def mapper(task: AbstractTask[T]) -> T:
-    reqs = task._resolve_requirements()
-
-    if reqs is None:
-        return task()
-    else:
-        return task(reqs)
-
-
 def get_requirements(backend: Optional[BackendSpec] = None):
     global AQ_INJECTED_TASK
     global AQ_INJECTED_REQUIREMENTS

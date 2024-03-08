@@ -11,7 +11,7 @@ from aqueduct.task.abstract_task import AbstractTask
 
 
 def parse_task_spec( spec: str, name_to_task: Mapping[str, Type[AbstractTask]]) -> AbstractTask:
-    task_name_regex = re.compile("([A-Za-z0-9_]+)\(")
+    task_name_regex = re.compile(r"([A-Za-z0-9_]+)\(")
     task_name_matches = task_name_regex.findall(spec)
 
     locals = {k: name_to_task[k] for k in task_name_matches}
@@ -39,7 +39,7 @@ if __name__ == "__main__":
             return 3
 
     task = parse_task_spec(
-        "TaskA(toto=3.7234, tata=TaskB())", {}, {"TaskA": TaskA, "TaskB": TaskB}
+        "TaskA(toto=3.7234, tata=TaskB())", {"TaskA": TaskA, "TaskB": TaskB}
     )
 
     print(run(task))

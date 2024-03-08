@@ -13,6 +13,7 @@ from typing import (
 import logging
 import omegaconf as oc
 
+import aqueduct.backend.backend
 from dask.optimization import fuse, inline_functions
 from dask.distributed import Client, LocalCluster
 from aqueduct.artifact.base import resolve_artifact_from_spec
@@ -50,7 +51,7 @@ class DaskBackend(ImmediateBackend):
 
     def _run(self, task: TaskTree):
         _logger.info("Computing Dask graph...")
-        computation, graph = add_work_to_dask_graph(task, {}, ignore_cache=False)
+        computation, graph = add_work_to_dask_graph(task, {}, self._spec(), ignore_cache=False)
         _logger.info(f"Dask Graph has {len(graph)} unique tasks.")
 
         _logger.info("Optimizing graph...")
@@ -76,12 +77,18 @@ class DaskBackend(ImmediateBackend):
 
 def wrap_in_context(
     cfg: oc.DictConfig,
+    backend_spec,
     fn: Callable,
     *args,
     **kwargs,
 ):
+    aqueduct.backend.backend.AQ_CURRENT_BACKEND = resolve_dask_backend_dict_spec(backend_spec)
     set_config(cfg)
     return fn(*args, **kwargs)
+
+
+def build_dask_task(cfg: oc.DictConfig, backend_spec: DaskBackendDictSpec, fn: Callable, *args) -> tuple:
+    return (wrap_in_context, cfg, backend_spec, fn, *args)
 
 
 def resolve_dask_backend_dict_spec(
@@ -107,7 +114,7 @@ def save_and_return(task, result):
 
 
 def add_task_to_dask_graph(
-    task: AbstractTask, graph: DaskGraph, ignore_cache: bool = False
+    task: AbstractTask,  graph: DaskGraph, backend_spec: DaskBackendDictSpec, ignore_cache: bool = False
 ) -> tuple[str, DaskGraph]:
     # Check if task is already in graph.
     task_key = task._unique_key()
@@ -125,22 +132,18 @@ def add_task_to_dask_graph(
     if artifact is not None and artifact.exists() and not force_run:
         # The task was in cache, we can just load it.
         _logger.info(f"Loading result of {task} from {artifact}")
-        graph[task_key] = (
-            wrap_in_context,
-            current_cfg,
-            task.load,
-        )
+        graph[task_key] = build_dask_task( current_cfg, backend_spec, task.load)
         final_key = task_key
 
     else:
         # We need to execute the task.
         if isinstance(task, Task):
             task_key, graph = add_single_task_to_dask_graph(
-                task, graph, ignore_cache=ignore_cache
+                task, graph, backend_spec, ignore_cache=ignore_cache
             )
         elif isinstance(task, AbstractMapReduceTask):
             task_key, graph = add_parallel_task_to_dask_graph(
-                task, graph, ignore_cache=ignore_cache
+                task, graph, backend_spec, ignore_cache=ignore_cache
             )
         else:
             raise RuntimeError("Unhandled type when adding task to dask graph.")
@@ -148,9 +151,9 @@ def add_task_to_dask_graph(
         if artifact is not None and task.AQ_AUTOSAVE:
             # Put a new task in front of the original, which saves the result before returning it.
             final_key = task_key + "_save_and_return"
-            graph[final_key] = (
-                wrap_in_context,
+            graph[final_key] = build_dask_task(
                 current_cfg,
+                backend_spec,
                 functools.partial(save_and_return, task),
                 task_key,
             )
@@ -160,7 +163,7 @@ def add_task_to_dask_graph(
     return final_key, graph
 
 
-def add_single_task_to_dask_graph(task: Task, graph, ignore_cache=False):
+def add_single_task_to_dask_graph(task: Task, graph, backend_spec, ignore_cache=False):
     task_key = task._unique_key()
 
     requirements = task._resolve_requirements(ignore_cache=ignore_cache)
@@ -168,34 +171,29 @@ def add_single_task_to_dask_graph(task: Task, graph, ignore_cache=False):
     current_cfg = get_config()
 
     if requirements is None:
-        graph[task_key] = (
-            wrap_in_context,
+        graph[task_key] = build_dask_task(
             current_cfg,
+            backend_spec,
             task,
         )
     else:
         computation, graph = add_work_to_dask_graph(
-            requirements, graph, ignore_cache=ignore_cache
+            requirements, graph, backend_spec, ignore_cache=ignore_cache
         )
-        graph[task_key] = (
-            wrap_in_context,
-            current_cfg,
-            task,
-            computation,
-        )
+        graph[task_key] = build_dask_task( current_cfg, backend_spec, task, computation)
 
     return task_key, graph
 
 
 def add_parallel_task_to_dask_graph(
-    parallel_task: AbstractMapReduceTask, graph, ignore_cache=False
+    parallel_task: AbstractMapReduceTask, graph, backend_spec, ignore_cache=False
 ):
     """Expand all the work in a parallel task and add it to the graph."""
     # Resolve requirements.
     requirements = parallel_task._resolve_requirements(ignore_cache=ignore_cache)
     if requirements is not None:
         requirements_key, graph = add_work_to_dask_graph(
-            requirements, graph, ignore_cache=ignore_cache
+            requirements, graph, backend_spec, ignore_cache=ignore_cache
         )
     else:
         requirements_key = None
@@ -234,9 +232,9 @@ def add_parallel_task_to_dask_graph(
             right_child_key = accumulator_key
 
         # Add children together.
-        children_reduce_work_unit = (
-            wrap_in_context,
+        children_reduce_work_unit = build_dask_task(
             current_cfg,
+            backend_spec,
             parallel_task.reduce,
             left_child_key,
             right_child_key,
@@ -244,9 +242,9 @@ def add_parallel_task_to_dask_graph(
         )
 
         # Add reduce of children with map of current node.
-        self_reduce_work_unit = (
-            wrap_in_context,
+        self_reduce_work_unit = build_dask_task(
             current_cfg,
+            backend_spec,
             map_reduce,
             item,
             children_reduce_work_unit,
@@ -262,9 +260,9 @@ def add_parallel_task_to_dask_graph(
         root_reduce_key = accumulator_key
 
     post_task_key = f"{base_task_key}"
-    graph[post_task_key] = (
-        wrap_in_context,
+    graph[post_task_key] = build_dask_task(
         current_cfg,
+        backend_spec,
         parallel_task.post,
         root_reduce_key,
         requirements_key,
@@ -274,35 +272,35 @@ def add_parallel_task_to_dask_graph(
 
 
 def add_list_to_dask_graph(
-    work: list, graph: DaskGraph, ignore_cache: bool = False
+    work: list, graph: DaskGraph, backend_spec, ignore_cache: bool = False
 ) -> tuple[list[str | list], DaskGraph]:
     new_list = []
     for x in work:
-        computation, graph = add_work_to_dask_graph(x, graph, ignore_cache=ignore_cache)
+        computation, graph = add_work_to_dask_graph(x, graph, backend_spec, ignore_cache=ignore_cache)
         new_list.append(computation)
 
     return new_list, graph
 
 
 def add_tuple_to_dask_graph(
-    work: tuple, graph: DaskGraph, ignore_cache: bool = False
+    work: tuple, graph: DaskGraph, backend_spec, ignore_cache: bool = False
 ) -> tuple[DaskComputation, DaskGraph]:
     work_as_list = list(work)
 
     computation, graph = add_list_to_dask_graph(
-        work_as_list, graph, ignore_cache=ignore_cache
+        work_as_list, graph, backend_spec, ignore_cache=ignore_cache
     )
 
     return (tuple, computation), graph
 
 
 def add_dict_to_dask_graph(
-    work: dict, graph: DaskGraph, ignore_cache: bool = False
+    work: dict, graph: DaskGraph, backend_spec, ignore_cache: bool = False
 ) -> tuple[DaskComputation, DaskGraph]:
     work_as_list = list(work.values())
 
     computation, graph = add_list_to_dask_graph(
-        work_as_list, graph, ignore_cache=ignore_cache
+        work_as_list, graph, backend_spec, ignore_cache=ignore_cache
     )
 
     def rebuild_dict(mapped_values):
@@ -312,24 +310,24 @@ def add_dict_to_dask_graph(
 
 
 def add_work_to_dask_graph(
-    work: TaskTree, graph: DaskGraph, ignore_cache: bool = False
+    work: TaskTree, graph: DaskGraph, backend_spec: DaskBackendDictSpec, ignore_cache: bool = False
 ) -> tuple[DaskComputation, DaskGraph]:
 
     if isinstance(work, AbstractTask):
         computation, graph = add_task_to_dask_graph(
-            work, graph, ignore_cache=ignore_cache
+            work, graph, backend_spec, ignore_cache=ignore_cache
         )
     elif isinstance(work, list):
         computation, graph = add_list_to_dask_graph(
-            work, graph, ignore_cache=ignore_cache
+            work, graph, backend_spec, ignore_cache=ignore_cache
         )
     elif isinstance(work, tuple):
         computation, graph = add_tuple_to_dask_graph(
-            work, graph, ignore_cache=ignore_cache
+            work, graph, backend_spec, ignore_cache=ignore_cache
         )
     elif isinstance(work, dict):
         computation, graph = add_dict_to_dask_graph(
-            work, graph, ignore_cache=ignore_cache
+            work, graph, backend_spec, ignore_cache=ignore_cache
         )
     else:
         raise RuntimeError("Unhandled type when adding work to dask graph.")
