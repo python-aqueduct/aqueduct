@@ -82,12 +82,15 @@ def wrap_in_context(
     *args,
     **kwargs,
 ):
+    """When executing a function on remote, make sure to set up the aqueduct context
+    before."""
     aqueduct.backend.backend.AQ_CURRENT_BACKEND = resolve_dask_backend_dict_spec(backend_spec)
     set_config(cfg)
     return fn(*args, **kwargs)
 
 
 def build_dask_task(cfg: oc.DictConfig, backend_spec: DaskBackendDictSpec, fn: Callable, *args) -> tuple:
+    """Utility function so that we can have type hints when building dask task tuples."""
     return (wrap_in_context, cfg, backend_spec, fn, *args)
 
 

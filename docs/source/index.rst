@@ -12,10 +12,11 @@ Welcome to Aqueduct's documentation!
    :caption: Contents:
    
    getting_started
-   tasks
-   saving_results
-   computation
+   overview 
+   artifact
+   backend
    configuration
+   environment
    api/api
 
 

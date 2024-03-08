@@ -2,6 +2,8 @@ from typing import TypeVar, Any, TypedDict, Literal
 
 import logging
 
+from aqueduct.backend.base import TaskError
+
 from ..artifact import resolve_artifact_from_spec
 from .backend import Backend
 from ..task import AbstractTask
@@ -76,12 +78,18 @@ class ImmediateBackend(Backend):
         return task_result
 
     def execute_task(self, task: Task[T], requirements=None) -> T:
-        return execute_task(task, requirements)
+        try:
+            return execute_task(task, requirements)
+        except Exception as e:
+            raise TaskError(f"Error while executing task {task}") from e
 
     def execute_map_reduce_task(
         self, task: AbstractMapReduceTask[Any, Any, T], requirements=None
     ) -> T:
-        return execute_map_reduce_task(task, requirements)
+        try:
+            return execute_map_reduce_task(task, requirements)
+        except Exception as e:
+            raise TaskError(f"Error while executing task {task}") from e
 
     def _run(self, work: TaskTree) -> Any:
         result = _resolve_task_tree(work, self.check_artifact_and_execute)

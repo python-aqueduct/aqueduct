@@ -1,5 +1,5 @@
 
-Computing tasks in parallel
+Computing backends
 ===========================
 
 

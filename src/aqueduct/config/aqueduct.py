@@ -1,9 +1,7 @@
 from typing import Any
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import omegaconf
-
-from ..backend.base import BackendDictSpec
 
 
 @dataclass
@@ -16,5 +14,11 @@ class DefaultAqueductConfigSource:
     def __call__(self):
         # aq_config = omegaconf.OmegaConf.structured(AqueductConfig)
         return omegaconf.OmegaConf.create(
-            {"aqueduct": {"local_store": "./", "backend": {"type": "immediate"}}}
+            {
+                "aqueduct": {
+                    "scratch_store": "${oc.env:AQ_SCRATCH_STORE,./}",
+                    "local_store": "${oc.env:AQ_LOCAL_STORE,./}",
+                    "backend": {"type": "immediate"},
+                }
+            }
         )

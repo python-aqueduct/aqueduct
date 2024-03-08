@@ -8,6 +8,8 @@ if TYPE_CHECKING:
 
 AQ_CURRENT_BACKEND: Optional["Backend"] = None
 
+class TaskException(RuntimeError):
+    pass
 
 class Backend(abc.ABC):
     @abc.abstractmethod
@@ -18,9 +20,11 @@ class Backend(abc.ABC):
         """Execute a :class:`Task` by resolving all its requirements."""
         global AQ_CURRENT_BACKEND
         AQ_CURRENT_BACKEND = self
+
         result = self._run(work)
         AQ_CURRENT_BACKEND = None
         return result
+
 
     @abc.abstractmethod
     def _spec(self) -> "BackendSpec":
