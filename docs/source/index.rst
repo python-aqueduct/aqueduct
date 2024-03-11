@@ -15,6 +15,7 @@ Welcome to Aqueduct's documentation!
    overview 
    artifact
    backend
+   cli
    configuration
    environment
    api/api
