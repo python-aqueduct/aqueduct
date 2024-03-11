@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aqueduct"
-version = "20230523"
+version = "20240311"
 dependencies = [
     "bleach>=5",
     "dask",
