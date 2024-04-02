@@ -1,4 +1,4 @@
-from typing import TypeVar, Any, TypedDict, Literal
+from typing import Type, TypeVar, Any, TypedDict, Literal
 
 import logging
 
@@ -50,14 +50,28 @@ class ImmediateBackend(Backend):
     No parallelism is involved. Useful for debugging purposes. For any form of
     parallelism, the :class:`DaskBackend` is probably more appropriate."""
 
-    def check_artifact_and_execute(self, task: AbstractTask[T], requirements=None) -> T:
+    def check_artifact_and_execute(
+        self,
+        task: AbstractTask[T],
+        requirements=None,
+        force_tasks: set[Type[AbstractTask]] = set(),
+    ) -> T:
         # Check if the artifact exists and computation is needed.
         artifact_spec = task.artifact()
 
-        force_run = getattr(task, "_aq_force_root", False)
+        if force_tasks:
+            is_forced_task = any([issubclass(task.__class__, c) for c in force_tasks])
+        else:
+            is_forced_task = False
+        force_run = getattr(task, "_aq_force_root", False) or is_forced_task
 
         artifact = resolve_artifact_from_spec(artifact_spec)
-        if artifact is not None and artifact.exists() and not force_run:
+        if (
+            artifact is not None
+            and artifact.exists()
+            and not force_run
+            and task.AQ_AUTOLOAD
+        ):
             _logger.info(f"Loading result of {task} from {artifact}")
             return task.load()
 
@@ -91,8 +105,13 @@ class ImmediateBackend(Backend):
         except Exception as e:
             raise TaskError(f"Error while executing task {task}") from e
 
-    def _run(self, work: TaskTree) -> Any:
-        result = _resolve_task_tree(work, self.check_artifact_and_execute)
+    def _run(self, work: TaskTree, force_tasks: set[Type[AbstractTask]] = set()) -> Any:
+        def fn(task, requirements=None):
+            return self.check_artifact_and_execute(
+                task, requirements, force_tasks=force_tasks
+            )
+
+        result = _resolve_task_tree(work, fn, force_tasks=force_tasks)
         return result
 
     def _spec(self) -> str:

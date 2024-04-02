@@ -2,13 +2,16 @@
 
 So far, only the :class:`DaskBackend` is available."""
 
-from typing import TypeAlias, Literal, Mapping
+from typing import TypeAlias, Literal, Mapping, cast
 import collections.abc
+
+from aqueduct.config import get_aqueduct_config
 from .backend import Backend
 from .concurrent import ConcurrentBackend
 from .dask import DaskBackend, resolve_dask_backend_dict_spec
 from .immediate import ImmediateBackend
 from .multiprocessing import MultiprocessingBackend
+import hydra
 
 NAMES_OF_BACKENDS = {
     "immediate": ImmediateBackend,
@@ -25,6 +28,7 @@ BackendSpec: TypeAlias = (
     | BackendDictSpec
     | None
 )
+
 
 def resolve_backend_from_spec(spec: BackendSpec) -> Backend:
     if isinstance(spec, Backend):
@@ -60,7 +64,6 @@ def resolve_dict_backend_spec(spec: BackendDictSpec) -> Backend:
 
 def get_default_backend() -> Backend:
     return resolve_backend_from_spec(None)
-
 
 
 __all__ = [

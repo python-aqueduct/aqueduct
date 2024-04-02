@@ -2,54 +2,21 @@ from typing import TypeAlias
 
 
 import argparse
-import inspect
 import logging
 import omegaconf
-import os
-import pandas as pd
 import sys
-import xarray as xr
 
-from aqueduct.artifact.composite import CompositeArtifact
+from aqueduct.cli.ls_cli import add_ls_cli_to_parser
 from aqueduct.cli.run_cli import add_run_cli_to_parser
 
 from .base import get_config_sources, resolve_config, resolve_source_modules
-from .del_cli import add_del_cli_to_parser, del_cli
-from ..artifact import Artifact, resolve_artifact_from_spec
-from ..backend import resolve_backend_from_spec
-from ..config import set_config
-from ..config.aqueduct import DefaultAqueductConfigSource
-from ..config.configsource import DotListConfigSource, ConfigSource
-from ..config.taskargs import TaskArgsConfigSource
-from ..task import AbstractTask
+from .del_cli import add_del_cli_to_parser
+from .artifact_cli import add_artifact_cli_to_parser
 from ..taskresolve import create_task_index
-from .tasklang import parse_task_spec
-from ..task_tree import _map_tasks_in_tree, reduce_type_in_tree
-from ..util import tasks_in_module
 
 OmegaConfig: TypeAlias = omegaconf.DictConfig | omegaconf.ListConfig
 
 logger = logging.getLogger(__name__)
-
-
-def list_tasks(ns: argparse.Namespace):
-    modules_per_project = resolve_source_modules(ns)
-
-    for p in modules_per_project:
-        print(p)
-
-        for m in modules_per_project[p]:
-            print(f"    {m}")
-
-            tasks = tasks_in_module(m)
-
-            for task in tasks:
-                task_string = task.__qualname__
-
-                if ns.signature:
-                    task_string += str(inspect.signature(task))
-
-                print(f"        {task_string}")
 
 
 def config_cli(ns):
@@ -69,8 +36,8 @@ def config_cli(ns):
             print()
             yaml_str = omegaconf.OmegaConf.to_yaml(source(), resolve=ns.resolve)
             lines = yaml_str.splitlines()
-            for l in lines:
-                print(f"  {l}")
+            for line in lines:
+                print(f"  {line}")
 
             print()
 
@@ -98,9 +65,8 @@ def cli():
     run_parser = subparsers.add_parser("run")
     add_run_cli_to_parser(run_parser)
 
-    list_parser = subparsers.add_parser("list", aliases=["ls"])
-    list_parser.add_argument("--signature", action="store_true")
-    list_parser.set_defaults(func=list_tasks)
+    ls_parser = subparsers.add_parser("ls", help="List tasks.")
+    add_ls_cli_to_parser(ls_parser)
 
     config_parser = subparsers.add_parser("config", aliases=["cfg"])
     config_parser.add_argument("--show", action="store_true")
@@ -138,6 +104,9 @@ def cli():
 
     del_parser = subparsers.add_parser("del")
     add_del_cli_to_parser(del_parser)
+
+    artifact_parser = subparsers.add_parser("artifact")
+    add_artifact_cli_to_parser(artifact_parser)
 
     ns = parser.parse_args()
 

@@ -1,7 +1,9 @@
+"""Set of tools to resolve the name of a task to the task class. Also contains utilities
+to figure out the configuration."""
+
 from typing import Any, Mapping, Sequence, Type, Optional, Iterable
 import importlib.metadata
 import logging
-import omegaconf
 
 from .task import AbstractTask
 from .util import tasks_in_module
@@ -45,12 +47,16 @@ def create_task_index(
     config_entry_points = importlib.metadata.entry_points(group="aqueduct_config")
     config_provider_of_project = {ep.name: ep.load() for ep in config_entry_points}
 
-    config_provider_of_name = {
-        n: config_provider_of_project[
-            project_of_module_name[module_name_of_task_class[task_class_of_name[n]]]
+    config_provider_of_name = {}
+    for n in task_class_of_name:
+        project = project_of_module_name[
+            module_name_of_task_class[task_class_of_name[n]]
         ]
-        for n in task_class_of_name
-    }
+
+        if project in config_provider_of_project:
+            config_provider_of_name[n] = config_provider_of_project[project]
+        else:
+            pass
 
     return task_class_of_name, config_provider_of_name, module_name_of_task_class
 

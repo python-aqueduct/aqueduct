@@ -99,8 +99,7 @@ def store_artifact_filesystem(
 
     _logger.info(f"Writing using {writer}")
 
-    with path.open("wb") as f:
-        writer(object, str(path))
+    writer(object, str(path))
 
 
 def store_artifact_memory(artifact: InMemoryArtifact, object: Any):

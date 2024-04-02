@@ -39,6 +39,8 @@ class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
     AQ_AUTOSAVE = True
     """If `True`, the result of the task is automatically stored in the artifact."""
 
+    AQ_AUTOLOAD = True
+
     CONFIG: ConfigSpec = None
     """The configuration of the Task class. It specifies how the `config` method should
     behave. If set to a dict-like object, that mapping is used as configuration. If set

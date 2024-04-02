@@ -1,4 +1,4 @@
-from typing import Callable, TypeVar, Generic, TypeAlias, BinaryIO, TextIO
+from typing import Callable, TypeVar, Generic, TypeAlias, TextIO
 
 import abc
 import datetime

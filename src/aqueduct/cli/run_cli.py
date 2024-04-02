@@ -10,6 +10,7 @@ from aqueduct.backend.base import TaskError
 
 from .base import (
     build_task_from_cli_spec,
+    downstream_of,
     get_config_sources,
     resolve_config,
     resolve_source_modules,
@@ -84,6 +85,13 @@ def run_cli(ns: argparse.Namespace):
         print_task_tree(root_task)
         return
 
+    force_tasks = set()
+    if ns.force_downstream_of:
+        downstream_of_target = downstream_of(
+            root_task, name2task[ns.force_downstream_of]
+        )
+        force_tasks.update(downstream_of_target)
+
     backend = resolve_backend_from_spec(cfg.aqueduct.backend)
     try:
         logger.info(f"Using backend {backend}.")
@@ -91,9 +99,9 @@ def run_cli(ns: argparse.Namespace):
         logger.info(f"Running task {root_task.__class__.__qualname__}")
 
         if ns.force_root:
-            root_task.set_force_root(True)
+            force_tasks.add(root_task.__class__)
 
-        result = backend.run(root_task)
+        result = backend.run(root_task, force_tasks=force_tasks)
 
         if ns.ipython:
             import IPython
@@ -134,6 +142,7 @@ def add_run_cli_to_parser(parser: argparse.ArgumentParser):
         action="store_true",
         help="Ignore cache for the root task and force it to run.",
     )
+    parser.add_argument("--force-downstream-of", type=str, default=None)
     parser.add_argument(
         "--resolve", action="store_true", help="Resolve the config before printing."
     )

@@ -2,6 +2,7 @@ import functools
 from typing import (
     Any,
     Callable,
+    Type,
     cast,
     Optional,
     TypeAlias,
@@ -49,9 +50,11 @@ class DaskBackend(ImmediateBackend):
         else:
             self.client = client
 
-    def _run(self, task: TaskTree):
+    def _run(self, task: TaskTree, force_tasks: set[Type[AbstractTask]] = set()):
         _logger.info("Computing Dask graph...")
-        computation, graph = add_work_to_dask_graph(task, {}, self._spec(), ignore_cache=False)
+        computation, graph = add_work_to_dask_graph(
+            task, {}, self._spec(), ignore_cache=False, force_tasks=force_tasks
+        )
         _logger.info(f"Dask Graph has {len(graph)} unique tasks.")
 
         _logger.info("Optimizing graph...")
@@ -84,12 +87,16 @@ def wrap_in_context(
 ):
     """When executing a function on remote, make sure to set up the aqueduct context
     before."""
-    aqueduct.backend.backend.AQ_CURRENT_BACKEND = resolve_dask_backend_dict_spec(backend_spec)
+    aqueduct.backend.backend.AQ_CURRENT_BACKEND = resolve_dask_backend_dict_spec(
+        backend_spec
+    )
     set_config(cfg)
     return fn(*args, **kwargs)
 
 
-def build_dask_task(cfg: oc.DictConfig, backend_spec: DaskBackendDictSpec, fn: Callable, *args) -> tuple:
+def build_dask_task(
+    cfg: oc.DictConfig, backend_spec: DaskBackendDictSpec, fn: Callable, *args
+) -> tuple:
     """Utility function so that we can have type hints when building dask task tuples."""
     return (wrap_in_context, cfg, backend_spec, fn, *args)
 
@@ -106,7 +113,7 @@ def resolve_client_from_dict_spec(spec: DaskBackendDictSpec):
         case {"type": "dask", "address": str(address)}:
             return Client(address)
         case {"type": "dask", "n_workers": int(n_workers)}:
-            return Client(LocalCluster(n_workers=n_workers))
+            return Client(LocalCluster(processes=n_workers))
         case _:
             raise ValueError("Could not parse Dask backend specification.")
 
@@ -117,7 +124,11 @@ def save_and_return(task, result):
 
 
 def add_task_to_dask_graph(
-    task: AbstractTask,  graph: DaskGraph, backend_spec: DaskBackendDictSpec, ignore_cache: bool = False
+    task: AbstractTask,
+    graph: DaskGraph,
+    backend_spec: DaskBackendDictSpec,
+    ignore_cache: bool = False,
+    force_tasks: set[Type[AbstractTask]] = set(),
 ) -> tuple[str, DaskGraph]:
     # Check if task is already in graph.
     task_key = task._unique_key()
@@ -129,13 +140,19 @@ def add_task_to_dask_graph(
 
     # Check if the artifact exists and computation is needed.
     artifact_spec = task.artifact()
-    force_run = getattr(task, "_aq_force_root", False)
+    is_force_task = [issubclass(task.__class__, c) for x in force_tasks]
+    force_run = getattr(task, "_aq_force_root", False) or is_force_task
 
     artifact = resolve_artifact_from_spec(artifact_spec)
-    if artifact is not None and artifact.exists() and not force_run:
+    if (
+        artifact is not None
+        and artifact.exists()
+        and not force_run
+        and task.AQ_AUTOLOAD
+    ):
         # The task was in cache, we can just load it.
         _logger.info(f"Loading result of {task} from {artifact}")
-        graph[task_key] = build_dask_task( current_cfg, backend_spec, task.load)
+        graph[task_key] = build_dask_task(current_cfg, backend_spec, task.load)
         final_key = task_key
 
     else:
@@ -183,7 +200,7 @@ def add_single_task_to_dask_graph(task: Task, graph, backend_spec, ignore_cache=
         computation, graph = add_work_to_dask_graph(
             requirements, graph, backend_spec, ignore_cache=ignore_cache
         )
-        graph[task_key] = build_dask_task( current_cfg, backend_spec, task, computation)
+        graph[task_key] = build_dask_task(current_cfg, backend_spec, task, computation)
 
     return task_key, graph
 
@@ -279,7 +296,9 @@ def add_list_to_dask_graph(
 ) -> tuple[list[str | list], DaskGraph]:
     new_list = []
     for x in work:
-        computation, graph = add_work_to_dask_graph(x, graph, backend_spec, ignore_cache=ignore_cache)
+        computation, graph = add_work_to_dask_graph(
+            x, graph, backend_spec, ignore_cache=ignore_cache
+        )
         new_list.append(computation)
 
     return new_list, graph
@@ -313,12 +332,20 @@ def add_dict_to_dask_graph(
 
 
 def add_work_to_dask_graph(
-    work: TaskTree, graph: DaskGraph, backend_spec: DaskBackendDictSpec, ignore_cache: bool = False
+    work: TaskTree,
+    graph: DaskGraph,
+    backend_spec: DaskBackendDictSpec,
+    ignore_cache: bool = False,
+    force_tasks: set[Type[AbstractTask]] = set(),
 ) -> tuple[DaskComputation, DaskGraph]:
 
     if isinstance(work, AbstractTask):
         computation, graph = add_task_to_dask_graph(
-            work, graph, backend_spec, ignore_cache=ignore_cache
+            work,
+            graph,
+            backend_spec,
+            ignore_cache=ignore_cache,
+            force_tasks=force_tasks,
         )
     elif isinstance(work, list):
         computation, graph = add_list_to_dask_graph(

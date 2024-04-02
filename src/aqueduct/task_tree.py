@@ -1,7 +1,6 @@
 """New task tree resolution module, with more options. Should gradually replace the 
 functions in .util."""
 
-
 from typing import (
     Any,
     Callable,
@@ -72,8 +71,7 @@ def _map_type_in_tree(
     on_expand: Optional[OneExpandCallback] = None,
     before_map: Optional[Callable[[_T], None]] = None,
     after_map: Optional[Callable[[_U], None]] = None,
-) -> list:
-    ...
+) -> list: ...
 
 
 @overload
@@ -84,8 +82,7 @@ def _map_type_in_tree(
     on_expand: Optional[OneExpandCallback] = None,
     before_map: Optional[Callable[[_T], None]] = None,
     after_map: Optional[Callable[[_U], None]] = None,
-) -> dict[_K, Any]:
-    ...
+) -> dict[_K, Any]: ...
 
 
 @overload
@@ -96,8 +93,7 @@ def _map_type_in_tree(
     on_expand: Optional[OneExpandCallback] = None,
     before_map: Optional[Callable[[_T], None]] = None,
     after_map: Optional[Callable[[_U], None]] = None,
-) -> tuple:
-    ...
+) -> tuple: ...
 
 
 @overload
@@ -108,8 +104,7 @@ def _map_type_in_tree(
     on_expand: Optional[OneExpandCallback] = None,
     before_map: Optional[Callable[[_T], None]] = None,
     after_map: Optional[Callable[[_U], None]] = None,
-) -> _U:
-    ...
+) -> _U: ...
 
 
 @overload
@@ -120,8 +115,7 @@ def _map_type_in_tree(
     on_expand: Optional[OneExpandCallback] = None,
     before_map: Optional[Callable[[_T], None]] = None,
     after_map: Optional[Callable[[_U], None]] = None,
-) -> Any:
-    ...
+) -> Any: ...
 
 
 def _map_type_in_tree(
@@ -174,10 +168,18 @@ def _resolve_task_tree(
     work: TaskTree,
     fn: Callable,
     ignore_cache=False,
+    force_tasks: Optional[set[Type["AbstractTask"]]] = None,
     **kwargs,
 ) -> Any:
     def mapper(task: "AbstractTask") -> Any:
-        requirements = task._resolve_requirements(ignore_cache=ignore_cache)
+        if force_tasks:
+            is_forced = any([issubclass(task.__class__, c) for c in force_tasks])
+        else:
+            is_forced = False
+
+        requirements = task._resolve_requirements(
+            ignore_cache=ignore_cache or is_forced
+        )
 
         if requirements is None:
             to_return = fn(task)

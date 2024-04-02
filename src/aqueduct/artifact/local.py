@@ -1,10 +1,9 @@
-from typing import TypeAlias, BinaryIO, TextIO, Callable, TypeVar
-
 import datetime
 import pathlib
+from typing import BinaryIO, Callable, TextIO, TypeAlias, TypeVar
 
-from .artifact import StreamArtifact, TextStreamArtifact
 from ..config import get_aqueduct_config
+from .artifact import StreamArtifact, TextStreamArtifact
 
 _T = TypeVar("_T")
 PathSpec: TypeAlias = pathlib.Path | str
@@ -29,7 +28,7 @@ class LocalFilesystemArtifact(TextStreamArtifact, StreamArtifact):
         self.path = pathlib.Path(path)
 
     def exists(self) -> bool:
-        return self.path.is_file()
+        return self.path.is_file() or self.path.is_dir()
 
     def last_modified(self):
         return datetime.datetime.fromtimestamp(self.path.stat().st_mtime)

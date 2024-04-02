@@ -1,62 +1,14 @@
-from typing import Optional, Type
-
 import argparse
-import omegaconf
 import os
+import re
 
-from ..artifact import Artifact, resolve_artifact_from_spec
-from ..artifact.composite import CompositeArtifact
-from ..config import set_config
-from ..task import AbstractTask
-from ..task_tree import reduce_type_in_tree
 from ..taskresolve import create_task_index, resolve_task_class
-from .base import build_task_from_cli_spec, get_config_sources, resolve_config, resolve_source_modules
-from .tasklang import parse_task_spec
+from .base import (
+    build_task_from_cli_spec,
+    resolve_source_modules,
+    accumulate_artifacts_of_tree,
+)
 
-def flatten_artifact(artifact: Artifact) -> list[Artifact]:
-    if isinstance(artifact, CompositeArtifact):
-        artifacts = []
-        for a in artifact.artifacts:
-            artifacts.extend(flatten_artifact(a))
-
-        return artifacts
-    else:
-        return [artifact]
-
-
-
-def accumulate_artifacts_of_tree(
-    tree,
-    artifacts: list[tuple[AbstractTask, Artifact]],
-    below: Optional[Type[AbstractTask]] = None,
-):
-    """Expand a task tree and gather all its artifacts in a list.
-    Args:
-        tree: The task tree to expand.
-        artifacts: The list of artifacts to accumulate.
-        below: If specified, only accumulate artifacts of tasks that are of this type or below it in the task tree.
-
-    Returns:
-        A list of of tuples (task, artifact)."""
-
-    def accumulate_artifacts_of_task(
-        task: AbstractTask,
-        artifacts: list[tuple[AbstractTask, Artifact]],
-    ):
-        if below is None or not isinstance(task, below):
-            # Expand requirements of that task because it is not of type below.
-            reqs = task._resolve_requirements(ignore_cache=True)
-            artifacts = accumulate_artifacts_of_tree(reqs, artifacts, below=below)
-
-        resolved_artifact = resolve_artifact_from_spec(task.artifact())
-        if resolved_artifact is not None:
-            artifacts.extend([(task, x) for x in flatten_artifact(resolved_artifact)])
-
-        return artifacts
-
-    return reduce_type_in_tree(
-        tree, AbstractTask, accumulate_artifacts_of_task, artifacts
-    )
 
 def del_cli(ns):
     project_name_to_module_names = resolve_source_modules(ns)
@@ -69,54 +21,80 @@ def del_cli(ns):
 
     BelowClass = resolve_task_class(ns.below) if ns.below is not None else None
 
-    artifacts = accumulate_artifacts_of_tree(root_task, [], below=BelowClass)
+    artifacts = accumulate_artifacts_of_tree(
+        root_task, [], below=BelowClass, max_depth=ns.max_depth
+    )
 
-    # Group the artifacts by task.
-    artifacts_by_task = {}
+    if ns.re is not None:
+        regex = re.compile(ns.re)
+        filtered_artifacts = []
+        for task, artifact in artifacts:
+            if regex.match(task.task_name()):
+                filtered_artifacts.append((task, artifact))
+
+        artifacts = filtered_artifacts
+
+    # Group the artifacts by task key.
+    used_unique_keys = set()
+    artifacts_by_task_name = {}
     for task, artifact in artifacts:
-        if task not in artifacts_by_task:
-            artifacts_by_task[task] = []
+        if task.task_name() not in artifacts_by_task_name:
+            artifacts_by_task_name[task.task_name()] = set()
 
         if artifact.exists():
-            artifacts_by_task[task].append(artifact)
+            artifacts_by_task_name[task.task_name()].add(artifact.path)
 
-    n_artifacts = sum([len(x) for x in artifacts_by_task.values()])
+    n_artifacts = sum([len(x) for x in artifacts_by_task_name.values()])
 
     if n_artifacts == 0:
         print(f"No artifacts found for task {task.task_name()}.")
         return
     else:
         print(f"Will delete {n_artifacts} artifacts:")
-        for task in artifacts_by_task:
-            print(f"    {task.task_name()} ({len(artifacts_by_task[task])})")
+        for task_name in sorted(artifacts_by_task_name):
+            artifacts = artifacts_by_task_name[task_name]
 
-            for artifact in artifacts_by_task[task]:
-                print(f"        {artifact.path}")
+            if len(artifacts) == 0:
+                continue
+            else:
+                print(f"    {task_name} ({len(artifacts)})")
+
+                for artifact in sorted(list(artifacts)):
+                    print(f"        {artifact}")
 
         confirmation = input("Continue? (Y/n) ")
         if confirmation.lower() != "y":
             return
 
-        for task in artifacts_by_task:
-            for artifact in artifacts_by_task[task]:
-                print(f"Removing {artifact.path}.")
-                os.unlink(artifact.path)
+        for task_name, artifacts in artifacts_by_task_name.items():
+            for artifact in artifacts:
+                print(f"Removing {artifact}.")
+                os.unlink(artifact)
 
 
 def add_del_cli_to_parser(parser: argparse.ArgumentParser):
-    parser.add_argument("task", type=str, nargs='+', help="The task at the root of the dependency tree. Accepts task names of Python expressions.")
+    parser.add_argument(
+        "task",
+        type=str,
+        nargs="+",
+        help="The task at the root of the dependency tree. Accepts task names of Python expressions.",
+    )
     parser.add_argument(
         "--below",
         type=str,
         help="Specify a task name. Only delete artifacts of itself and its children. If not specified, delete all artifacts of the task tree.",
         default=None,
     )
-    parser.add_argument(
-        "--cfg", action="store_true", help="Print config and return."
-    )
+    parser.add_argument("--cfg", action="store_true", help="Print config and return.")
     parser.add_argument(
         "--resolve",
         action="store_true",
         help="Fully resolve the config values before printing.",
+    )
+    parser.add_argument(
+        "--max-depth", type=int, default=None, help="Maximum tree depth to explore."
+    )
+    parser.add_argument(
+        "--re", type=str, default=None, help="Regular expression to filter tasks."
     )
     parser.set_defaults(func=del_cli)
