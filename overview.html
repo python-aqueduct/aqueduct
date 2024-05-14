@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Usage overview &mdash; Aqueduct  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js?v=b3ba4146"></script>
+        <script src="_static/doctools.js?v=888ff710"></script>
+        <script src="_static/sphinx_highlight.js?v=4825356b"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Saving computation results with artifacts" href="artifact.html" />
+    <link rel="prev" title="Getting Started" href="getting_started.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Aqueduct
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Usage overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#defining-a-task">Defining a task</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#specifying-dependencies">Specifying dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#parallel-execution">Parallel execution</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#executing-from-command-line">Executing from command line</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#saving-results">Saving results</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="artifact.html">Saving computation results with artifacts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="backend.html">Computing backends</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cli.html">Aqueduct CLI</a></li>
+<li class="toctree-l1"><a class="reference internal" href="task_advanced.html">Advanced Task Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="environment.html">Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/api.html">API documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Aqueduct</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Usage overview</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/overview.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="usage-overview">
+<span id="tasks"></span><h1>Usage overview<a class="headerlink" href="#usage-overview" title="Permalink to this heading"></a></h1>
+<p>This page is a short introduction to how Aqueduct works and what it can do for you.</p>
+<section id="defining-a-task">
+<h2>Defining a task<a class="headerlink" href="#defining-a-task" title="Permalink to this heading"></a></h2>
+<p>Tasks are the main tool provided to you by Aqueduct.
+By wrapping your code inside tasks, you allow Aqueduct to help you with parallel
+computation, command line interfaces, configuration and file management.
+A Task is defined by subclassing the <code class="xref py py-class docutils literal notranslate"><span class="pre">Task</span></code> class:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">aqueduct</span> <span class="k">as</span> <span class="nn">aq</span>
+
+<span class="k">class</span> <span class="nc">MyTask</span><span class="p">(</span><span class="n">aq</span><span class="o">.</span><span class="n">Task</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">my_task_parameter</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span> <span class="o">=</span> <span class="n">my_task_parameter</span>
+
+    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">requirements</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="o">**</span><span class="mi">2</span>
+</pre></div>
+</div>
+<p>The <code class="xref py py-func docutils literal notranslate"><span class="pre">run()</span></code> method contains the computation you wish to encapsulate.
+This task can be executed by calling <code class="xref py py-func docutils literal notranslate"><span class="pre">run()</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">my_task</span> <span class="o">=</span> <span class="n">MyTask</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+<span class="n">aq</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">my_task</span><span class="p">)</span>  <span class="c1"># Returns 16.</span>
+</pre></div>
+</div>
+</section>
+<section id="specifying-dependencies">
+<h2>Specifying dependencies<a class="headerlink" href="#specifying-dependencies" title="Permalink to this heading"></a></h2>
+<p>So far, we’ve only wrapped the <code class="code docutils literal notranslate"><span class="pre">run</span></code> function inside a complicated class, but
+what did we get in return?
+For one thing, we are now able to specify depdendencies.
+Aqueduct will make sure these dependencies are computed before executing the target task.
+For instance, if we defined:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">MyDependentTask</span><span class="p">(</span><span class="n">aq</span><span class="o">.</span><span class="n">Task</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">requirements</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">MyTask</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)]</span>
+
+    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">requirements</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">requirements</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+</pre></div>
+</div>
+<p>we could then compute the task chain using:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">aq</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">MyDependentTask</span><span class="p">())</span>  <span class="c1"># Returns 46.</span>
+</pre></div>
+</div>
+<p>The result of the required <code class="code docutils literal notranslate"><span class="pre">MyTask</span></code> is passed as an argument to <code class="code docutils literal notranslate"><span class="pre">MyDependentTask</span></code>.</p>
+</section>
+<section id="parallel-execution">
+<h2>Parallel execution<a class="headerlink" href="#parallel-execution" title="Permalink to this heading"></a></h2>
+<p>Now, imagine <code class="code docutils literal notranslate"><span class="pre">MyTask</span></code> was an expensive computation.
+You may wish to execute all calls to it in parallel.
+Fortunately, Aqueduct has you covered.
+You only have to specify the Dask computing backend:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">backend</span> <span class="o">=</span> <span class="n">aq</span><span class="o">.</span><span class="n">DaskBackend</span><span class="p">()</span>
+<span class="n">backend</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">MyDependentTask</span><span class="p">())</span> <span class="c1"># Returns 46.</span>
+</pre></div>
+</div>
+<p>This call builds the dependency graph and sends it to the Dask cluster for execution in
+parallel.
+Learn more about other computing backends in the <a class="reference internal" href="backend.html"><span class="doc">Computing backends</span></a> section.</p>
+</section>
+<section id="executing-from-command-line">
+<h2>Executing from command line<a class="headerlink" href="#executing-from-command-line" title="Permalink to this heading"></a></h2>
+<p>Aqueduct can call any task you define from command line.
+Say you stored <code class="code docutils literal notranslate"><span class="pre">MyTask</span></code> in the <cite>my_aqueduct_module.py</cite> file, you could then call:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">aq</span> <span class="n">run</span> <span class="o">--</span><span class="n">module</span> <span class="n">my_aqueduct_module</span> <span class="n">MyDependentTask</span> <span class="o">--</span><span class="n">dask</span> <span class="mi">4</span>
+</pre></div>
+</div>
+<p>to execute you task.
+This uses the Dask computing backend with 4 workers.</p>
+<p>Executing from CLI this way requires you to run the task from the directory where <code class="code docutils literal notranslate"><span class="pre">my_aqueduct_module</span></code> exists.
+See the <a class="reference internal" href="cli.html"><span class="doc">Aqueduct CLI</span></a> section for how to avoid specifying the <code class="code docutils literal notranslate"><span class="pre">--module</span></code> option every time.</p>
+</section>
+<section id="saving-results">
+<h2>Saving results<a class="headerlink" href="#saving-results" title="Permalink to this heading"></a></h2>
+<p>If <code class="code docutils literal notranslate"><span class="pre">MyTask</span></code> is very expensive to run, you may want to store its result to a file
+instead of recomputing it every time.
+In Aqueduct this is done by specifying an artifact:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">MyTask</span><span class="p">(</span><span class="n">aq</span><span class="o">.</span><span class="n">Task</span><span class="p">):</span>
+    <span class="o">...</span> <span class="c1"># Same as before</span>
+
+    <span class="k">def</span> <span class="nf">artifact</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">aq</span><span class="o">.</span><span class="n">LocalStoreArtifact</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;my_task_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">my_task_parameter</span><span class="si">}</span><span class="s2">.pkl&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This will save the output of <code class="code docutils literal notranslate"><span class="pre">run</span></code> to disk every time it is executed.
+If the artifact already exists, Aqueduct will not execute the task.
+Instead, it will load the artifact from storage and return it.
+The precise location where the artifact will be stored depends on your configuration.
+By default it is stored in the current working directory.</p>
+<p>Learn more about artifact storage in the <a class="reference internal" href="artifact.html"><span class="doc">Saving computation results with artifacts</span></a> page.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="getting_started.html" class="btn btn-neutral float-left" title="Getting Started" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="artifact.html" class="btn btn-neutral float-right" title="Saving computation results with artifacts" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, David Landry.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
