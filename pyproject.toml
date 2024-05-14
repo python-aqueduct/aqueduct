@@ -24,11 +24,12 @@ dependencies = [
 dev = [
     "isort",
     "black",
-    "sphinx-rtd-theme",
+    "sphinx-rtd-theme>=2.0.0",
     "myst-parser",
     "nb-clean",
     "parquet-tools",
-    "sphinx>=5",
+    "sphinx>=6.1.3",
+    "docutils>=0.19",
 ]
 
 [tool.black]
