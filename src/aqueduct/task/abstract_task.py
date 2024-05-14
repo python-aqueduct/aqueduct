@@ -7,7 +7,6 @@ from typing import (
     Union,
     Optional,
     TYPE_CHECKING,
-    overload,
 )
 
 import datetime
@@ -27,6 +26,10 @@ if TYPE_CHECKING:
     from ..task_tree import TaskTree
 
 _T = TypeVar("_T")
+_U = TypeVar("_U")
+
+AppliedClass = TypeVar("AppliedClass", bound="AbstractTask")
+
 
 _logger = logging.getLogger(__name__)
 
@@ -149,9 +152,10 @@ class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
     def set_force_root(self, value=True):
         self._aq_force_root = value
 
-    def task_name(self) -> str:
+    @classmethod
+    def task_name(cls) -> str:
         """User friendly name that is used to identify the task in a graph."""
-        return self.__class__.__qualname__
+        return cls.__qualname__
 
     def post(self, result: _T, requirements=None) -> _T:
         return result

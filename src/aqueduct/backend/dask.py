@@ -140,7 +140,7 @@ def add_task_to_dask_graph(
 
     # Check if the artifact exists and computation is needed.
     artifact_spec = task.artifact()
-    is_force_task = [issubclass(task.__class__, c) for x in force_tasks]
+    is_force_task = any([issubclass(task.__class__, x) for x in force_tasks])
     force_run = getattr(task, "_aq_force_root", False) or is_force_task
 
     artifact = resolve_artifact_from_spec(artifact_spec)
@@ -159,11 +159,11 @@ def add_task_to_dask_graph(
         # We need to execute the task.
         if isinstance(task, Task):
             task_key, graph = add_single_task_to_dask_graph(
-                task, graph, backend_spec, ignore_cache=ignore_cache
+                task, graph, backend_spec, ignore_cache=force_run
             )
         elif isinstance(task, AbstractMapReduceTask):
             task_key, graph = add_parallel_task_to_dask_graph(
-                task, graph, backend_spec, ignore_cache=ignore_cache
+                task, graph, backend_spec, ignore_cache=force_run
             )
         else:
             raise RuntimeError("Unhandled type when adding task to dask graph.")

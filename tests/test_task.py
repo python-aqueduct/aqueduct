@@ -236,3 +236,10 @@ class TestApply(unittest.TestCase):
         result = run(t_map)
         self.assertEqual(36, result)
         self.assertEqual("PretenseTask*square", t_map.task_name())
+
+    def test_class_apply(self):
+        AppliedClass: type[PretenseTask] = apply(square, PretenseTask)
+
+        t = AppliedClass(2, 2, 2)
+        result = run(t)
+        self.assertEqual(36, result)

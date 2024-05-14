@@ -3,10 +3,8 @@ from typing import TypedDict, Literal, Any, TypeVar
 import functools
 import multiprocessing
 
-from . import Backend
 from ..task import AbstractTask, Task
-from ..task.mapreduce import AbstractMapReduceTask, MapReduceTask
-from ..task_tree import TaskTree, _resolve_task_tree
+from ..task.mapreduce import AbstractMapReduceTask
 from .immediate import ImmediateBackend, execute_task
 
 _T = TypeVar("_T")

@@ -17,7 +17,7 @@ def list_tasks(ns: argparse.Namespace):
             tasks = tasks_in_module(m)
 
             for task in tasks:
-                task_string = task.__qualname__
+                task_string = task.task_name()
 
                 if ns.signature:
                     task_string += str(inspect.signature(task))

@@ -24,7 +24,7 @@ dependencies = [
 dev = [
     "isort",
     "black",
-    "furo",
+    "sphinx-rtd-theme",
     "myst-parser",
     "nb-clean",
     "parquet-tools",

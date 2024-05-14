@@ -16,6 +16,7 @@ Welcome to Aqueduct's documentation!
    artifact
    backend
    cli
+   task_advanced
    configuration
    environment
    api/api

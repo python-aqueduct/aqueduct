@@ -93,13 +93,15 @@ def store_artifact_filesystem(
     object_type_hint: Type[_T] | None = None,
 ):
     path = artifact.path
+    tmp_path = path.with_suffix(".tmp" + path.suffix)
     path.parent.mkdir(parents=True, exist_ok=True)
 
     writer = resolve_writer(type(object))
 
     _logger.info(f"Writing using {writer}")
 
-    writer(object, str(path))
+    writer(object, str(tmp_path))
+    tmp_path.rename(path)
 
 
 def store_artifact_memory(artifact: InMemoryArtifact, object: Any):

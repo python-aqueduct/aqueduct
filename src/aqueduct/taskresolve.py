@@ -36,13 +36,13 @@ def create_task_index(
 
     task_class_of_name = {}
     for t in module_name_of_task_class:
-        if t.__qualname__ in task_class_of_name:
+        if t.task_name() in task_class_of_name:
             _logger.warn(
                 f"Found two tasks with non unique names: {t._fully_qualified_name()} "
                 f"and {task_class_of_name[t.__qualname__]._fully_qualified_name()}"
             )
 
-        task_class_of_name[t.__qualname__] = t
+        task_class_of_name[t.task_name()] = t
 
     config_entry_points = importlib.metadata.entry_points(group="aqueduct_config")
     config_provider_of_project = {ep.name: ep.load() for ep in config_entry_points}

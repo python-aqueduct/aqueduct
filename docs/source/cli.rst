@@ -69,6 +69,9 @@ CLI tools
 :code:`aq ls`
     List the tasks detected by CLI tools.
 
+    :code:`--signature`
+    Show the task signature.
+
 
 :code:`aq del <task> --below <task_name>`
     Delete all artifacts in the task tree that stems from :code:`<task>`. 
