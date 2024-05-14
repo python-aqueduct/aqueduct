@@ -1,2 +1,2 @@
-furo==2021.11.16
 sphinx_rtd_theme==2.0.0
+sphinx>=5

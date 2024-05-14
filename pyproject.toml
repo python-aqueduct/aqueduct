@@ -28,7 +28,7 @@ dev = [
     "myst-parser",
     "nb-clean",
     "parquet-tools",
-    "sphinx",
+    "sphinx>=5",
 ]
 
 [tool.black]
