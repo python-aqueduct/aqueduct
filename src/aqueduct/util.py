@@ -94,16 +94,6 @@ def count_tasks_to_run(
     return counts
 
 
-def task_to_result(task: "AbstractTask[_T]") -> _T:
-    requirements = task._resolve_requirements()
-
-    if requirements is None:
-        return task()
-    else:
-        mapped_requirements = _map_tasks_in_tree(requirements, task_to_result)
-        return task(mapped_requirements)
-
-
 def tasks_in_module(
     module_name: str, package: Optional[str] = None
 ) -> Sequence[Type["AbstractTask"]]:
@@ -115,7 +105,11 @@ def tasks_in_module(
     tasks = []
     for k in members:
         if inspect.isclass(members[k]) and issubclass(members[k], AbstractTask):
-            tasks.append(members[k])
+            task = members[k]
+
+            if task.__module__ == module_name:
+                """Filter out tasks that are imported from other modules"""
+                tasks.append(task)
 
     return tasks
 

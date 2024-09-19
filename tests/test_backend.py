@@ -7,7 +7,6 @@ from aqueduct.backend import (
 )
 from aqueduct.config import set_config
 from aqueduct.task import Task
-from aqueduct.task.mapreduce import TaskC
 
 
 class TestBackendResolution(unittest.TestCase):
@@ -45,7 +44,7 @@ class TaskA(Task[int]):
         return 2
 
 
-class TaskC(TaskC):
+class TaskC(Task):
     def requirements(self):
         return TaskA()
 
