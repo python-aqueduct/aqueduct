@@ -17,6 +17,11 @@ def run(work: TaskTree) -> Any:
     ...
 
 
-def run(work: TaskTree | AbstractTask) -> Any:
+def run(work: TaskTree | AbstractTask, force_root: bool=False) -> Any:
+    force_tasks = set()
+    if force_root:
+        force_tasks.add(work.__class__)
+
+
     backend = ImmediateBackend()
     return backend.run(work)
