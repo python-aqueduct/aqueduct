@@ -17,6 +17,7 @@ from .task import (
     inline,
     as_artifact,
     apply,
+    Functor,
 )
 from .util import count_tasks_to_run, tasks_in_module
 
@@ -33,6 +34,7 @@ __all__ = [
     "ConcurrentBackend",
     "count_tasks_to_run",
     "DaskBackend",
+    "Functor",
     "get_config",
     "ImmediateBackend",
     "inline",

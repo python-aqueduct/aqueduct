@@ -1,4 +1,4 @@
-"""New task tree resolution module, with more options. Should gradually replace the 
+"""New task tree resolution module, with more options. Should gradually replace the
 functions in .util."""
 
 from typing import (
@@ -142,6 +142,8 @@ def _map_type_in_tree(
             return tuple([_map_type_in_tree(x, type, map_fn, **kwargs) for x in tree])
         elif isinstance(tree, dict):
             return {k: _map_type_in_tree(tree[k], type, map_fn, **kwargs) for k in tree}
+    elif tree is None:
+        return None
     elif isinstance(tree, type):
         if before_map:
             before_map(tree)

@@ -1,8 +1,8 @@
-"""Tasks are the basic building block of Aqueduct. A Task is a unit of work. It has 
+"""Tasks are the basic building block of Aqueduct. A Task is a unit of work. It has
 four main features:
 
 - A `run` method which describes the work to be carried out.
-- A `requirements` method which describes what Tasks should be carried out before this 
+- A `requirements` method which describes what Tasks should be carried out before this
   one.
 - An `artifact` method which is useful to avoid useless computations if the Task result
   is cached.
@@ -15,6 +15,7 @@ from .abstract_task import AbstractTask
 from .aggregate import AggregateTask
 from .apply import apply
 from .extract_artifact import as_artifact
+from .functor import Functor
 from .inline import inline
 from .task import Task
 from .notebook import NotebookTask
@@ -26,9 +27,10 @@ __all__ = [
     "AggregateTask",
     "apply",
     "as_artifact",
-    "Task",
+    "Functor",
     "inline",
+    "MapReduceTask",
     "NotebookTask",
     "RepeaterTask",
-    "MapReduceTask",
+    "Task",
 ]
