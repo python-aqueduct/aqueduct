@@ -140,20 +140,20 @@ class AbstractTask(Generic[_T], metaclass=WrapInitMeta):
         # super().__init__().
         return "-".join(
             [
-                self.task_name(),
+                self.ui_name(),
                 self._args_hash,  # type: ignore
             ]
         )
 
     def __str__(self):
-        task_name = self.task_name()
+        task_name = self.ui_name()
         return f"{task_name}"
 
     def set_force_root(self, value=True):
         self._aq_force_root = value
 
     @classmethod
-    def task_name(cls) -> str:
+    def ui_name(cls) -> str:
         """User friendly name that is used to identify the task in a graph."""
         return cls.__qualname__
 

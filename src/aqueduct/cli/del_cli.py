@@ -29,7 +29,7 @@ def del_cli(ns):
         regex = re.compile(ns.re)
         filtered_artifacts = []
         for task, artifact in artifacts:
-            if regex.match(task.task_name()):
+            if regex.match(task.ui_name()):
                 filtered_artifacts.append((task, artifact))
 
         artifacts = filtered_artifacts
@@ -38,16 +38,16 @@ def del_cli(ns):
     used_unique_keys = set()
     artifacts_by_task_name = {}
     for task, artifact in artifacts:
-        if task.task_name() not in artifacts_by_task_name:
-            artifacts_by_task_name[task.task_name()] = set()
+        if task.ui_name() not in artifacts_by_task_name:
+            artifacts_by_task_name[task.ui_name()] = set()
 
         if artifact.exists():
-            artifacts_by_task_name[task.task_name()].add(artifact.path)
+            artifacts_by_task_name[task.ui_name()].add(artifact.path)
 
     n_artifacts = sum([len(x) for x in artifacts_by_task_name.values()])
 
     if n_artifacts == 0:
-        print(f"No artifacts found for task {task.task_name()}.")
+        print(f"No artifacts found for task {task.ui_name()}.")
         return
     else:
         print(f"Will delete {n_artifacts} artifacts:")

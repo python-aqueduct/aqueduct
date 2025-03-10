@@ -11,6 +11,8 @@ from typing import (
     TYPE_CHECKING,
 )
 
+from aqueduct.task.functor import Functor
+
 from .task_tree import TypeTree, _map_tasks_in_tree, _resolve_task_tree
 
 if TYPE_CHECKING:
@@ -74,7 +76,7 @@ def count_tasks_to_run(
 
     def handle_one_task(task: "AbstractTask", *args, **kwargs):
         if ignore_cache or not task.is_cached():
-            task_type = task.task_name()
+            task_type = task.ui_name()
             list_of_type = tasks_by_type.get(task_type, [])
             list_of_type.append(task)
             tasks_by_type[task_type] = list_of_type
@@ -95,8 +97,8 @@ def count_tasks_to_run(
 
 
 def tasks_in_module(
-    module_name: str, package: Optional[str] = None
-) -> Sequence[Type["AbstractTask"]]:
+    module_name: str, package: Optional[str] = None, include_functors: bool = False
+) -> Sequence[Type["AbstractTask"] | Type["Functor"]]:
     from .task import AbstractTask
 
     mod = importlib.import_module(module_name, package=package)
@@ -104,12 +106,20 @@ def tasks_in_module(
 
     tasks = []
     for k in members:
-        if inspect.isclass(members[k]) and issubclass(members[k], AbstractTask):
-            task = members[k]
+        if inspect.isclass(members[k]):
+            if issubclass(members[k], AbstractTask):
+                task = members[k]
 
-            if task.__module__ == module_name:
-                """Filter out tasks that are imported from other modules"""
-                tasks.append(task)
+                if task.__module__ == module_name:
+                    """Filter out tasks that are imported from other modules"""
+                    tasks.append(task)
+
+            elif include_functors and issubclass(members[k], Functor):
+                functor = members[k]
+
+                if functor.__module__ == module_name:
+                    """Filter out tasks that are imported from other modules"""
+                    tasks.append(functor)
 
     return tasks
 

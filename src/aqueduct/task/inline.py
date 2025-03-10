@@ -37,8 +37,8 @@ class InlineTaskWrapper(Task[_T]):
 
         return self.wrapped.run(requirements)
 
-    def task_name(self) -> str:
-        return self.wrapped.task_name() + "*inline"
+    def ui_name(self) -> str:
+        return self.wrapped.ui_name() + "*inline"
 
 
 def inline(task: AbstractTask[_T]) -> InlineTaskWrapper[_T]:

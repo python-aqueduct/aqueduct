@@ -44,15 +44,19 @@ def print_task_tree(task: AbstractTask, ignore_cache=False):
 
 
 def run_cli(ns: argparse.Namespace):
+    print(ns)
+
     project_name_to_module_names = resolve_source_modules(ns)
 
     name2task, name2config_provider, task_class2module_name = create_task_index(
         project_name_to_module_names
     )
 
-    root_task = build_task_from_cli_spec(ns.task, name2task, name2config_provider)
+    root_task = build_task_from_cli_spec(
+        ns.task, name2task, name2config_provider, mapped_task=vars(ns).get("of", None)
+    )
     task_class = root_task.__class__
-    task_config_source = name2config_provider.get(root_task.task_name(), None)
+    task_config_source = name2config_provider.get(root_task.ui_name(), None)
 
     config_sources = get_config_sources(
         [], ns.overrides, task_class, task_config_source
@@ -158,6 +162,8 @@ def add_run_cli_to_parser(parser: argparse.ArgumentParser):
         action="store_true",
         help="Print the task tree that would be executed and exit.",
     )
+
+    parser.add_argument("--of", nargs="+", type=str, default=None)
 
     backend_group = parser.add_mutually_exclusive_group()
     backend_group.add_argument("--concurrent", type=int, default=None)

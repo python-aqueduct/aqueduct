@@ -25,8 +25,8 @@ class TaskWithApply(Task[_U]):
         retval = self.inner.run(*args, **kwargs)
         return self.fn(retval)
 
-    def task_name(self) -> str:
-        return self.inner.task_name() + "*" + self.fn.__name__
+    def ui_name(self) -> str:
+        return self.inner.ui_name() + "*" + self.fn.__name__
 
 
 @overload
@@ -62,7 +62,7 @@ def apply(
                 return fn(x)
 
             @classmethod
-            def task_name(cls):
+            def ui_name(cls):
                 if name is not None:
                     return name
                 else:

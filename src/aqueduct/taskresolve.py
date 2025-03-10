@@ -13,7 +13,7 @@ _logger = logging.getLogger(__name__)
 
 
 def create_task_index(
-    project_name_to_module_names: Mapping[str, Iterable[str]]
+    project_name_to_module_names: Mapping[str, Iterable[str]],
 ) -> tuple[
     Mapping[str, Type[AbstractTask]],
     Mapping[str, ConfigSource],
@@ -30,19 +30,19 @@ def create_task_index(
     module_name_of_task_class: Mapping[Type[AbstractTask], Any] = {}
     for project in project_name_to_module_names:
         for module_name in project_name_to_module_names[project]:
-            task_classes = tasks_in_module(module_name)
+            task_classes = tasks_in_module(module_name, include_functors=True)
             for t in task_classes:
                 module_name_of_task_class[t] = module_name
 
     task_class_of_name = {}
     for t in module_name_of_task_class:
-        if t.task_name() in task_class_of_name:
+        if t.ui_name() in task_class_of_name:
             _logger.warn(
                 f"Found two tasks with non unique names: {t._fully_qualified_name()} "
                 f"and {task_class_of_name[t.__qualname__]._fully_qualified_name()}"
             )
 
-        task_class_of_name[t.task_name()] = t
+        task_class_of_name[t.ui_name()] = t
 
     config_entry_points = importlib.metadata.entry_points(group="aqueduct_config")
     config_provider_of_project = {ep.name: ep.load() for ep in config_entry_points}

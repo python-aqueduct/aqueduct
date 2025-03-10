@@ -19,6 +19,7 @@ Welcome to Aqueduct's documentation!
    task_advanced
    configuration
    environment
+   functor
    api/api
 
 

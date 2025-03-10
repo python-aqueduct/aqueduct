@@ -1,6 +1,9 @@
 import argparse
 import inspect
 
+from aqueduct.task.abstract_task import AbstractTask
+from aqueduct.task.functor import Functor
+
 from ..util import tasks_in_module
 from .base import resolve_source_modules
 
@@ -14,15 +17,21 @@ def list_tasks(ns: argparse.Namespace):
         for m in modules_per_project[p]:
             print(f"    {m}")
 
-            tasks = tasks_in_module(m)
+            tasks = tasks_in_module(m, include_functors=True)
 
             for task in tasks:
-                task_string = task.task_name()
+                if isinstance(task, Functor):
+                    to_print = "*" + task.ui_name()
+
+                elif isinstance(task, AbstractTask):
+                    to_print = task.ui_name()
+
+                else:
+                    raise TypeError(f"Unknown task type: {type(task)}")
 
                 if ns.signature:
-                    task_string += str(inspect.signature(task))
-
-                print(f"        {task_string}")
+                    to_print += str(inspect.signature(task))
+                print(f"        {to_print}")
 
 
 def add_ls_cli_to_parser(parser: argparse.ArgumentParser):

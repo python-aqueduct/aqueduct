@@ -6,6 +6,7 @@ import sys
 
 from aqueduct.cli.tasklang import parse_task_spec
 from aqueduct.config import set_config
+from aqueduct.task.functor import Functor
 
 from ..artifact import Artifact, CompositeArtifact, resolve_artifact_from_spec
 from ..config.configsource import ConfigSource, DotListConfigSource
@@ -62,23 +63,42 @@ def build_task_from_cli_spec(
     spec: list[str],
     name_to_task: Mapping[str, type[AbstractTask]],
     name_to_config: Mapping[str, ConfigSource],
+    mapped_task: list[str],
 ) -> AbstractTask:
+    """Args:
+    mapped_task: The task on which we apply the functor. Implies that the spec
+        describes a functor."""
+
     if len(spec) >= 1 and spec[0] in name_to_task:
         task_name, *task_args = spec
-        TaskClass = name_to_task[task_name]
+        TaskOrFunctorClass = name_to_task[task_name]
 
         task_config_source = name_to_config.get(task_name, None)
         config_sources = get_config_sources(
-            task_args, [], TaskClass, task_config_source
+            task_args, [], TaskOrFunctorClass, task_config_source
         )
         cfg = resolve_config(config_sources)
         set_config(cfg)
-        root_task = TaskClass()
+        task_or_functor_instance = TaskOrFunctorClass()
+
+        if isinstance(task_or_functor_instance, Functor):
+            if len(mapped_task) > 0:
+                task_instance_to_map = build_task_from_cli_spec(
+                    mapped_task, name_to_task, name_to_config, []
+                )
+
+                task_instance = task_or_functor_instance(task_instance_to_map)
+            else:
+                raise ValueError(
+                    "Functor must be applied to a task using the --of argument."
+                )
+        else:
+            task_instance = task_or_functor_instance
 
     else:
-        root_task = parse_task_spec(spec[0], name_to_task)
+        task_instance = parse_task_spec(spec[0], name_to_task)
 
-    return root_task
+    return task_instance
 
 
 def flatten_artifact(artifact: Artifact) -> list[Artifact]:
