@@ -5,7 +5,7 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Saving computation results with artifacts &mdash; Aqueduct  documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
 
   
@@ -93,12 +93,12 @@
 <h2>Using artifacts<a class="headerlink" href="#using-artifacts" title="Permalink to this heading"></a></h2>
 <p>If a task runs heavy computations, you may want to cache its result using a pattern
 like this:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pathlib</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">pathlib</span>
 
-<span class="kn">import</span> <span class="nn">aqueduct</span> <span class="k">as</span> <span class="nn">aq</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">aqueduct</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">aq</span>
 
-<span class="k">class</span> <span class="nc">MyHeavyTask</span><span class="p">(</span><span class="n">aq</span><span class="o">.</span><span class="n">Task</span><span class="p">):</span>
-    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MyHeavyTask</span><span class="p">(</span><span class="n">aq</span><span class="o">.</span><span class="n">Task</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="s1">&#39;my_file.pkl&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
             <span class="k">return</span> <span class="n">load_file</span><span class="p">(</span><span class="s1">&#39;my_file.pkl&#39;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
@@ -112,11 +112,11 @@ like this:</p>
 An artifact is simply a pointer to a storage location, like a filesystem path.
 You can specify the artifact of a task using the <code class="xref py py-func docutils literal notranslate"><span class="pre">artifact()</span></code> method:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Equivalent to above.</span>
-<span class="k">class</span> <span class="nc">MyHeavyTaskWithArtifact</span><span class="p">(</span><span class="n">aq</span><span class="o">.</span><span class="n">Task</span><span class="p">):</span>
-    <span class="k">def</span> <span class="nf">artifact</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MyHeavyTaskWithArtifact</span><span class="p">(</span><span class="n">aq</span><span class="o">.</span><span class="n">Task</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">artifact</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="s1">&#39;my_file.pkl&#39;</span>
 
-    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="c1"># heavy computation</span>
         <span class="n">result</span> <span class="o">=</span> <span class="o">...</span>
         <span class="k">return</span> <span class="n">result</span>
@@ -147,20 +147,20 @@ The currently supported extensions are as follows:</p>
 <h2>Specific IO<a class="headerlink" href="#specific-io" title="Permalink to this heading"></a></h2>
 <p>Sometimes, you would like to define an artifact but save it yourself.
 You can override the save and load behavior if the automatic resolution does not work for you:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">MyHeavyTaskWithFancyArtifact</span><span class="p">(</span><span class="n">aq</span><span class="o">.</span><span class="n">Task</span><span class="p">):</span>
-    <span class="k">def</span> <span class="nf">artifact</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">MyHeavyTaskWithFancyArtifact</span><span class="p">(</span><span class="n">aq</span><span class="o">.</span><span class="n">Task</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">artifact</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="s1">&#39;my_file.xyz&#39;</span>
 
-    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="c1"># heavy computation</span>
         <span class="n">result</span> <span class="o">=</span> <span class="o">...</span>
         <span class="k">return</span> <span class="n">result</span>
 
-    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">):</span>
         <span class="n">path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">artifact</span><span class="p">()</span><span class="o">.</span><span class="n">path</span>
         <span class="n">my_fancy_save</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">artifact</span><span class="p">()</span><span class="o">.</span><span class="n">path</span>
         <span class="k">return</span> <span class="n">my_fancy_load</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
 </pre></div>

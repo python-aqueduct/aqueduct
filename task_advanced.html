@@ -5,7 +5,7 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Advanced Task Usage &mdash; Aqueduct  documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
 
   
@@ -93,14 +93,14 @@ For instance, you may have a task that generates a very large artifact.
 To avoid regenerating this artifact constantly, you may want to apply modifications to
 it after reading it, instead of modifying the task itself.
 Aqueduct provides a tool to make this easier, <code class="xref py py-func docutils literal notranslate"><span class="pre">apply()</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">aqueduct</span> <span class="k">as</span> <span class="nn">aq</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">aqueduct</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">aq</span>
 
-<span class="k">class</span> <span class="nc">MyMassiveTask</span><span class="p">(</span><span class="n">aq</span><span class="o">.</span><span class="n">Task</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">]):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">param</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MyMassiveTask</span><span class="p">(</span><span class="n">aq</span><span class="o">.</span><span class="n">Task</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">]):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">param</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">param</span> <span class="o">=</span> <span class="n">param</span>
     <span class="o">...</span>
 
-<span class="k">def</span> <span class="nf">my_tweak</span><span class="p">(</span><span class="n">massive_array</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">my_tweak</span><span class="p">(</span><span class="n">massive_array</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="n">massive_array</span><span class="p">)</span>
 
 <span class="n">MyTweakedTask</span> <span class="o">=</span> <span class="n">aq</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">my_tweak</span><span class="p">,</span> <span class="n">MyMassiveTask</span><span class="p">)</span>
