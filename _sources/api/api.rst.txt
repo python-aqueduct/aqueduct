@@ -5,6 +5,7 @@ API documentation
    :maxdepth: 2
    :caption: Contents:
    
-   task
-   backend
    artifact
+   backend
+   functor
+   task
